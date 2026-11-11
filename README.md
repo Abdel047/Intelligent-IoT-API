@@ -46,7 +46,7 @@ API'et gemmer vindmålinger, registrerer overskridelser af **25 m/s** og oprette
 - **40 automatiske tests består med separate SQLite-testdatabaser.** Der er én deprecation-advarsel fra Starlettes testklient om httpx.
 - Dockerfile og Compose til FastAPI + MySQL 8.4 er bygget og startet. Integrationstest har verificeret 15/25/30 m/s via HTTP og direkte SQL, inklusive persistens efter genstart af begge containere.
 - MySQL Workbench, Docker Desktop og WSL er installeret. Docker engine svarer, Compose-konfigurationen validerer, og begge services er startet. Grafisk visning af data i Workbench mangler endnu at blive bekræftet.
-- `main` er forbundet med `https://github.com/Abdel047/Intelligent-IoT-API.git`. MySQL/Docker-løsningen og CI er uploadet i commit `ad444b1`; den tilhørende CI-kørsel er grøn. De seneste LAN/CD-ændringer afventer en ny godkendt upload.
+- `main` er forbundet med `https://github.com/Abdel047/Intelligent-IoT-API.git`. MySQL/Docker-løsningen og CI er uploadet i commit `ad444b1`; den tilhørende CI-kørsel er grøn. LAN/CD-ændringerne er uploadet i commit `68e04c0`; både CI og GHCR-publiceringen er verificeret med succes.
 - Den gamle `iot.db` er bevaret som backup. Historiske målinger er ikke flyttet til MySQL.
 
 ## Teknologi og arkitektur
@@ -285,7 +285,7 @@ git diff --cached --stat
 
 Når arbejdet er gennemgået, kan en commit oprettes med udvalgte kildefiler. Kontrollér altid `git diff --cached --name-only` først. Den oprindelige MySQL/Docker/CI-opdatering er committed og pushet. Seneste lokale ændringer skal gennemgås før næste upload. Push til GitHub kræver godkendelse.
 
-Gruppemedlemmer kloner repositoryet, opretter `.venv` og kører `scripts/prepare_env.py` til deres egne lokale hemmeligheder. Arbejd på branches og gennemgå ændringer via pull requests. GitHub Actions er nu defineret i `.github/workflows/ci.yml`. CI er uploadet og har kørt med succes. Den nye leveringsdel (CD) skal først uploades og verificeres. Azure er en senere mulighed; ingen cloudressourcer er oprettet.
+Gruppemedlemmer kloner repositoryet, opretter `.venv` og kører `scripts/prepare_env.py` til deres egne lokale hemmeligheder. Arbejd på branches og gennemgå ændringer via pull requests. GitHub Actions er nu defineret i `.github/workflows/ci.yml`. CI er uploadet og har kørt med succes. Den nye leveringsdel (CD) er uploadet og har publiceret imaget med succes. Azure er en senere mulighed; ingen cloudressourcer er oprettet.
 
 ## 9. Projektstruktur
 
@@ -355,7 +355,7 @@ Workflowen ligger i `.github/workflows/ci.yml` og gør følgende:
 
 **Grønt flueben:** alle trin bestod. **Rødt kryds:** et trin fejlede; klik på kørslen og det røde trin for at læse fejlen. GitHub viser resultatet under repositoryets **Actions**-fane. Efter den første upload kan **Run workflow** også bruges manuelt.
 
-CI bygger og tester i et isoleret miljø. Den nye CD-del leverer efter en godkendt push til `main` et testet image til GitHub Container Registry (GHCR). Den deployer ikke til Azure og kontakter ikke din lokale database. CI-kørslen for commit `ad444b1` er verificeret med succes. Den nye CD-jobdel er endnu ikke kørt på GitHub. Afhængigt af kontoens kvote kan Actions i private repositories være begrænset; aktivér ikke betalt ekstraforbrug for dette projekt.
+CI bygger og tester i et isoleret miljø. Den nye CD-del leverer efter en godkendt push til `main` et testet image til GitHub Container Registry (GHCR). Den deployer ikke til Azure og kontakter ikke din lokale database. CI-kørslen for commit `ad444b1` er verificeret med succes. CD-jobbet i kørslen for `68e04c0` er gennemført med succes. Afhængigt af kontoens kvote kan Actions i private repositories være begrænset; aktivér ikke betalt ekstraforbrug for dette projekt.
 
 ### Næste upload til GitHub
 
@@ -397,7 +397,7 @@ docker compose -f compose.yaml -f compose.lan.yaml stop gateway
 - **Continuous Delivery (CD):** den nye `deliver-image`-jobdel leverer automatisk et versioneret image til GHCR efter bestået CI på `main`. Den bruger GitHubs kortlivede token med `packages: write`; PR-kørsler udgiver ikke images. Private pakkers adgang skal kontrolleres i GitHub før deling. Ingen betalt ekstraforbrug aktiveres af projektet.
 - **Lokal deployment:** kør `scripts/deploy_local.ps1` eller `scripts/deploy_local.ps1 -Lan`. Det bygger de aktuelle lokale kildefiler og opdaterer containerne med bevaret databasevolume.
 
-Den lokale deployment er et manuelt godkendt trin. Projektet har ikke automatisk Continuous Deployment til et permanent miljø. Hvis underviseren kræver dette, skal driftsmål og adgang aftales særskilt. GHCR-jobbet er klargjort, men kan først erklæres verificeret, når den nye workflow er uploadet og kørt.
+Den lokale deployment er et manuelt godkendt trin. Projektet har ikke automatisk Continuous Deployment til et permanent miljø. Hvis underviseren kræver dette, skal driftsmål og adgang aftales særskilt. GHCR-jobbet er verificeret: kørslen for `68e04c0` bestod, og både commit-tag og `latest` blev publiceret.
 
 Officiel dokumentation: [Caddys lokale HTTPS-certifikater](https://caddyserver.com/docs/automatic-https) og [GitHub Container Registry med Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images).
 
@@ -406,7 +406,7 @@ Officiel dokumentation: [Caddys lokale HTTPS-certifikater](https://caddyserver.c
 
 HTTPS med valideret certifikat, API-nøglekontrol og POST til MySQL er verificeret fra værtscomputeren. DEMO-LAN-HTTPS blev oprettet som måling 16 med tre events og én alarm. Den lokale deploymentkommando med `-Lan` bestod. Firewallreglen er aktiv på TCP 8443 og den aktuelle private adresse med `LocalSubnet` som afsenderbegrænsning. Adgang via LAN-adressen til port 8000 og 3306 blev afvist som forventet.
 
-Den opdaterede workflow er kontrolleret med actionlint, og de 40 automatiske tests består. Test fra en fysisk anden computer, visning i Workbench og selve GHCR-publiceringen er endnu ikke bekræftet. Se den korte [afleveringscheckliste](docs/AFLEVERINGSSTATUS.md).
+Den opdaterede workflow er kontrolleret med actionlint, og de 40 automatiske tests består. Test fra en fysisk anden computer og visning i Workbench er endnu ikke bekræftet. GHCR-publiceringen er nu verificeret på GitHub. Se den korte [afleveringscheckliste](docs/AFLEVERINGSSTATUS.md).
 
 Windows PowerShell kan kræve tilladelse til lokale scripts. Til firewallopsætningen kan følgende køres i et administratorvindue; indstillingen gælder kun denne proces:
 
@@ -417,7 +417,7 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\enable_l
 
 ## Studiegruppen: hent det færdige image fra GitHub Packages
 
-Når CD-jobbet har publiceret pakken, findes API-imaget som `ghcr.io/abdel047/intelligent-iot-api:latest`. Repositoryet indeholder stadig Compose-filerne til både API og MySQL. Pakken indeholder API-koden og dependencies, ikke dine lokale passwords eller databaseindhold.
+CD-jobbet har publiceret API-imaget som `ghcr.io/abdel047/intelligent-iot-api:latest`. Repositoryet indeholder stadig Compose-filerne til både API og MySQL. Pakken indeholder API-koden og dependencies, ikke dine lokale passwords eller databaseindhold.
 
 1. Acceptér invitationen til det private repository, og klon det i VS Code.
 2. Installér/start Docker Desktop. Opret en lokal `.env` med Python-scriptet i installationsvejledningen. Hvert gruppemedlem bruger egne lokale nøgler/passwords.
@@ -434,3 +434,6 @@ docker compose -f compose.yaml -f compose.image.yaml up --no-build -d --wait
 For en bestemt verificeret udgave kan `API_IMAGE=ghcr.io/abdel047/intelligent-iot-api:HELE_COMMIT_SHA` sættes lokalt før start. `latest` peger på den seneste leverede main-version. Slet ikke MySQL-volumen ved opdatering.
 
 GitHub Packages er distribution af Docker-images. Den starter ikke automatisk en fælles API-server på internettet.
+
+
+Seneste verificerede publicering: commit `68e04c0`, [grøn CI/CD-kørsel](https://github.com/Abdel047/Intelligent-IoT-API/actions/runs/43013139741). API-imaget ligger på `ghcr.io/abdel047/intelligent-iot-api:latest`. Det lokale GitHub-login kunne ikke læse pakkens adgangsindstillinger (HTTP 403). Gruppens adgang skal derfor kontrolleres under Package settings; repository-invitation alene må ikke antages at give pakkeadgang uden kontrol. Pakken er ikke gjort offentlig af dette arbejde.

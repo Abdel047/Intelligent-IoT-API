@@ -41,6 +41,6 @@ Programmet er installeret, men selve Workbench-visningen er endnu ikke dokumente
 
 ## CD og upload
 
-Den nye workflow leverer automatisk et image til GHCR efter bestået CI på main. Dette er Continuous Delivery. Den del er endnu ikke uploadet/kørt og må ikke beskrives som verificeret. Lokal deployment med scripts/deploy_local.ps1 -Lan er verificeret. Automatisk deployment til et permanent miljø er ikke implementeret; hvis underviseren kræver dette, skal driftsmål afklares.
+Den nye workflow leverer automatisk et image til GHCR efter bestået CI på main. Dette er Continuous Delivery. Denne del er uploadet og verificeret i den grønne CI/CD-kørsel for commit 68e04c0. Lokal deployment med scripts/deploy_local.ps1 -Lan er verificeret. Automatisk deployment til et permanent miljø er ikke implementeret; hvis underviseren kræver dette, skal driftsmål afklares.
 
-Næste GitHub-upload kræver godkendelse. Den må ikke omfatte .env, certifikatmapper, sessionfiler eller lokale databaser. Den gamle nøgle i historikken er tidligere udskiftet; gamle commits er ikke omskrevet.
+LAN/CD-ændringerne er uploadet efter godkendelse. Fremtidige uploads kræver godkendelse. Den må ikke omfatte .env, certifikatmapper, sessionfiler eller lokale databaser. Den gamle nøgle i historikken er tidligere udskiftet; gamle commits er ikke omskrevet.

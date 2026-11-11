@@ -44,7 +44,7 @@ Følg docs/WORKBENCH_TRIN_FOR_TRIN.md for login før optagelsen. Den eksisterend
 
 ### GitHub
 
-Log ind før optagelsen, og åbn den grønne kørsel direkte. Åbn jobbet Tests, Docker-build og MySQL-integration. Vis de grønne trin. Den grønne kørsel tilhører commit ad444b1 og bekræfter CI. Det nyere CD-job og LAN-konfigurationen ligger endnu lokalt og er ikke en del af denne grønne kørsel.
+Log ind før optagelsen, og åbn den grønne kørsel direkte. Åbn jobbet Tests, Docker-build og MySQL-integration. Vis de grønne trin. Den grønne kørsel tilhører commit ad444b1 og bekræfter CI. LAN/CD-konfigurationen er nu også uploadet. Den nyere kørsel https://github.com/Abdel047/Intelligent-IoT-API/actions/runs/43013139741 for commit 68e04c0 har verificeret både CI og publicering af Docker-imaget; brug gerne denne nyere grønne kørsel i videoen.
 
 ### Skjul hemmeligheder
 
@@ -124,4 +124,4 @@ Dette live-trin er valgfrit i den korte video; persistens er allerede verificere
 - Passworddialog: sæt optagelsen på pause og log ind uden at vise .env.
 - Knapper ser anderledes ud i din Workbench-version: øv navigationen først og send et billede af SQL-editoren uden hemmeligheder, så vi kan tilpasse klikkene.
 
-Ingen push eller datasletning er udført under denne videoforberedelse.
+Videofilerne er senere uploadet efter godkendelse sammen med LAN/CD-ændringerne. Ingen eksisterende data er slettet.
