@@ -1,0 +1,60 @@
+name: CI - tests og Docker
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Tests, Docker-build og MySQL-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: intelligent-iot-ci
+    steps:
+      - name: Hent projektet
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Installer Python 3.13
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Installer Python-pakker
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Kør isolerede tests
+        run: python -m pytest -q
+
+      - name: Opret midlertidig CI-konfiguration
+        run: python scripts/prepare_env.py
+
+      - name: Kontrollér Compose-konfiguration
+        run: docker compose config --quiet
+
+      - name: Byg Docker-imaget
+        run: docker compose build api
+
+      - name: Start API og MySQL i CI
+        run: docker compose up --no-build -d --wait --wait-timeout 180
+
+      - name: Kontrollér API, MySQL og data efter genstart
+        run: python scripts/verify_stack.py --restart
+
+      - name: Stop CI-containere
+        if: always()
+        run: docker compose down --remove-orphans

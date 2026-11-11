@@ -1,0 +1,16 @@
+{
+  "sqltools.connections": [
+    {
+      "name": "Intelligent IoT - MySQL (nyt login)",
+      "driver": "MySQL",
+      "server": "127.0.0.1",
+      "port": 3306,
+      "database": "intelligent_iot",
+      "username": "iot_user",
+      "mysqlOptions": {
+        "ssl": false
+      },
+      "previewLimit": 50
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Intelligent IoT API — lokal",
+    "name": "Intelligent IoT API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Lokal collection med privat API-nøgle. Må ikke deles eller lægges på GitHub. Request 2, 3 og 6 ændrer data, når du klikker Send."
+    "description": "Delbar collection uden hemmeligheder. Sæt api_key lokalt i Postman før brug. POST og PATCH ændrer data."
   },
   "auth": {
     "type": "apikey",
@@ -32,7 +32,7 @@
     },
     {
       "key": "api_key",
-      "value": "G8Y54bbqAQTnYXQCuFkxz232VqIdOLvHGGxjwzCRkqc",
+      "value": "",
       "type": "string"
     },
     {
@@ -42,6 +42,17 @@
     }
   ],
   "item": [
+    {
+      "name": "0. Kontrollér API og database",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": "{{base_url}}/health"
+      }
+    },
     {
       "name": "1. Se gemte målinger",
       "request": {

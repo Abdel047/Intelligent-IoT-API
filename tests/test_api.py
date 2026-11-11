@@ -146,3 +146,38 @@ def test_public_home_and_security_documentation(client):
     schema = client.get("/openapi.json").json()
     assert schema["paths"]["/readings"]["post"]["security"] == [{"APIKeyHeader": []}]
     assert "security" not in schema["paths"]["/"]["get"]
+
+
+def test_health_checks_database(client, monkeypatch):
+    assert client.get("/health").json() == {"status": "ok", "database": "connected"}
+    def unavailable():
+        raise OperationalError("SELECT 1", {}, Exception("private connection detail"))
+    monkeypatch.setattr(client.app.state.engine, "connect", unavailable)
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json() == {"status": "unhealthy"}
+    assert "private" not in response.text
+
+
+def test_event_device_id_and_payload(client):
+    response = client.post("/readings", json={"device_id": "WT-03", "wind_speed": 30})
+    assert response.status_code == 201
+    for record in client.get("/events").json():
+        assert record["device_id"] == "WT-03"
+        assert isinstance(record["payload"], dict)
+
+
+def test_mysql_url_handles_special_password_characters(monkeypatch):
+    from database import configured_database_url
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("MYSQL_HOST", "mysql")
+    monkeypatch.setenv("MYSQL_USER", "iot_user")
+    monkeypatch.setenv("MYSQL_PASSWORD", "test-only-@:/?#pass")
+    monkeypatch.setenv("MYSQL_DATABASE", "intelligent_iot")
+    url = configured_database_url()
+    assert url.drivername == "mysql+pymysql"
+    assert url.host == "mysql"
+    assert url.password == "test-only-@:/?#pass"
+    assert url.database == "intelligent_iot"
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///explicit-test.db")
+    assert configured_database_url() == "sqlite:///explicit-test.db"

@@ -1,0 +1,6 @@
+# Kun de nødvendige kildefiler må indgå i build-context.
+**
+!Dockerfile
+!requirements.txt
+!main.py
+!database.py

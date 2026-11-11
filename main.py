@@ -9,11 +9,11 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from database import Alarm, Base, DEFAULT_DATABASE_URL, DomainEvent, Reading, make_engine, utc_now
+from database import Alarm, Base, configured_database_url, DomainEvent, Reading, make_engine, utc_now
 
 logger = logging.getLogger("uvicorn.error")
 THRESHOLD = 25
@@ -68,6 +68,7 @@ class EventOutput(TimestampOutput):
     reading_id: int
     alarm_id: int | None
     payload: dict
+    device_id: str
 
 
 def get_session(request: Request):
@@ -84,10 +85,14 @@ def create_app(database_url: str | None = None):
         if len(api_key.strip()) < 32 or api_key != api_key.strip():
             raise RuntimeError("Angiv API_KEY som miljøvariabel med mindst 32 tegn uden indledende/afsluttende mellemrum.")
         app.state.api_key = api_key
-        engine = make_engine(database_url or os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL))
+        engine = make_engine(database_url or configured_database_url())
         app.state.engine = engine
         try:
-            Base.metadata.create_all(engine)
+            try:
+                Base.metadata.create_all(engine)
+            except SQLAlchemyError:
+                logger.error("Kunne ikke klargøre databasen ved opstart.")
+                raise RuntimeError("Databasen kunne ikke åbnes. Kontrollér konfiguration og database-status.") from None
             yield
         finally:
             engine.dispose()
@@ -105,6 +110,15 @@ def create_app(database_url: str | None = None):
     def home():
         return {"message": "Intelligent IoT API virker!"}
 
+    @app.get("/health", summary="Kontrollér API og database")
+    def health(request: Request):
+        try:
+            with request.app.state.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+        except SQLAlchemyError:
+            return JSONResponse(status_code=503, content={"status": "unhealthy"})
+        return {"status": "ok", "database": "connected"}
+
     @router.post("/readings", response_model=ReadingOutput, status_code=201,
               summary="Gem måling og kontrollér tærsklen på 25 m/s")
     def receive_reading(reading: SensorReading, session: Session = Depends(get_session, scope="function")):
@@ -112,15 +126,15 @@ def create_app(database_url: str | None = None):
         result = Reading(**reading.model_dump(), anomaly_detected=anomaly)
         session.add(result)
         session.flush()
-        session.add(DomainEvent(event_type="SensorValueReceived", reading_id=result.id,
+        session.add(DomainEvent(event_type="SensorValueReceived", reading_id=result.id, device_id=reading.device_id,
                                 payload=reading.model_dump()))
         if anomaly:
-            session.add(DomainEvent(event_type="AnomalyDetected", reading_id=result.id,
+            session.add(DomainEvent(event_type="AnomalyDetected", reading_id=result.id, device_id=reading.device_id,
                                     payload={"wind_speed": reading.wind_speed, "threshold": THRESHOLD, "rule": "wind_speed > 25"}))
             alarm = Alarm(reading_id=result.id, device_id=reading.device_id, message="For høj vindhastighed!", status="active")
             session.add(alarm)
             session.flush()
-            session.add(DomainEvent(event_type="AlarmCreated", reading_id=result.id,
+            session.add(DomainEvent(event_type="AlarmCreated", reading_id=result.id, device_id=reading.device_id,
                                     alarm_id=alarm.id, payload={"status": "active"}))
         session.flush()
         response = ReadingOutput.model_validate(result)
@@ -154,8 +168,10 @@ def create_app(database_url: str | None = None):
             raise HTTPException(status_code=404, detail="Alarmen findes ikke.")
         if changed:
             session.add(DomainEvent(event_type="AlarmAcknowledged", reading_id=alarm.reading_id,
-                                    alarm_id=alarm.id, payload={"status": "acknowledged"}))
+                                    alarm_id=alarm.id, device_id=alarm.device_id, payload={"status": "acknowledged"}))
         session.flush()
+        if changed:
+            logger.info("Alarm kvitteret: id=%s", alarm.id)
         return AlarmOutput.model_validate(alarm)
 
     app.include_router(router)

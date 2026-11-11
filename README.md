@@ -1,124 +1,181 @@
 # Intelligent IoT API
 
-En lokal REST API til IoT-overvågning og en MVP til Predictive Maintenance for den fiktive virksomhed **Intelligent IoT Solutions A/S**.
+## Kort fortalt — sådan læser du løsningen
 
-API'et modtager vindhastigheder, finder overskridelser af en fast grænse og opretter alarmer, som kontrolcentret kan kvittere. Målinger, hændelser og alarmer gemmes permanent i SQLite.
+**Du sender en måling → API'et kontrollerer den → MySQL gemmer resultatet → SQLTools viser tabellerne.**
 
-> **Status:** Den lokale MVP med database, domænehændelser, API-nøgle og automatiske tests er implementeret. Hele skoleopgaven er endnu ikke færdig: GitHub Actions, Azure-deployment, cloudmonitorering og rapport mangler.
+- **Postman:** Her sender du en vindmåling til API'et.
+- **FastAPI:** Modtager og validerer målingen. Over 25 m/s giver en alarm; præcis 25 m/s gør ikke.
+- **MySQL:** Gemmer målinger, hændelser og alarmer permanent.
+- **Docker:** Kører API og MySQL. Lad Docker Desktop køre, når du bruger projektet.
+- **SQLTools i VS Code:** Viser de data, der ligger i MySQL. Workbench er valgfrit.
 
-## 1. Hvad virker?
+### Hvad betyder tabellerne og felterne?
 
-- Modtagelse og validering af sensormålinger.
-- Grænsekontrol: vindhastighed **over 25 m/s** udløser en alarm.
-- Permanent lagring via SQLAlchemy i tre SQLite-tabeller.
-- Gemte domænehændelser fra modtagelse til kvittering.
-- Visning af målinger, events samt aktive og kvitterede alarmer.
-- API-nøgle i headeren `X-API-Key` på alle dataendpoints.
-- Swagger/OpenAPI-dokumentation og grundlæggende logging.
-- 37 automatiske tests, som bestod ved seneste testkørsel.
+| Tabel/felt | Betydning |
+| --- | --- |
+| `sensor_readings` | De modtagne sensormålinger. |
+| `device_id` | Hvilken installation målingen kommer fra. |
+| `wind_speed` | Vindhastighed i meter pr. sekund. |
+| `anomaly_detected` | Sand/1 betyder, at værdien var over 25 m/s. Falsk/0 betyder normal. |
+| `domain_events` | Hvad systemet gjorde: modtog måling, fandt afvigelse, oprettede eller kvitterede alarm. |
+| `reading_id` | Nummeret på målingen, som hændelsen/alarmen hører til. |
+| `alarms` | Alarmer til driftspersonalet. `active` betyder aktiv; `acknowledged` betyder kvitteret. |
+| `created_at` | Oprettelsestidspunkt i UTC. |
 
-Dette er en tærskelbaseret demonstration. Der bruges endnu ikke maskinlæring til at forudsige fejl.
+### Se tabellerne igen
 
-## 2. Start på din nuværende computer
+Forbindelsen hedder nu **Intelligent IoT - MySQL (nyt login)**. Navnet er ændret efter passwords-skiftet for at undgå et gammelt gemt login.
 
-Åbn projektmappen i VS Code:
+1. Tryk **Ctrl+Shift+P → SQLTools: Connect** og vælg forbindelsen.
+2. Hvis der kommer et loginspørgsmål, tillad det og indsæt værdien fra `MYSQL_PASSWORD` i `.env` i passwordfeltet. Kopiér kun efter `=` og del ikke værdien.
+3. I SQLTools-panelet udvider du forbindelsen → databasen → **Tables**.
+4. Højreklik på `sensor_readings` → **Show Table Records**.
+5. Gør det samme for `domain_events` og `alarms`. Klik **RE-RUN QUERY** for at opdatere data efter en ny måling.
+
+Databasepasswordet er skiftet efter at være blevet delt. API-nøglen er uændret, så dine Postman-requests skal ikke ændres af den grund. Data og den gamle SQLite-backup er bevaret.
+
+
+REST API til IoT-overvågning og Managed Services for den fiktive virksomhed **Intelligent IoT Solutions A/S**. Studieprojekt på Økonomi & IT, 6. semester.
+
+API'et gemmer vindmålinger, registrerer overskridelser af **25 m/s** og opretter alarmer til kontrolcentret. Formålet er at understøtte hurtig reaktion og reducere risikoen for nedetid. Dette er en regelbaseret MVP, ikke en AI-model, der forudsiger maskinfejl.
+
+## Status — 11. november 2026
+
+- Den eksisterende FastAPI-løsning er udbygget med MySQL-understøttelse og `/health`.
+- **40 automatiske tests består med separate SQLite-testdatabaser.** Der er én deprecation-advarsel fra Starlettes testklient om httpx.
+- Dockerfile og Compose til FastAPI + MySQL 8.4 er bygget og startet. Integrationstest har verificeret 15/25/30 m/s via HTTP og direkte SQL, inklusive persistens efter genstart af begge containere.
+- MySQL Workbench, Docker Desktop og WSL er installeret. Docker engine svarer, Compose-konfigurationen validerer, og begge services er startet. Grafisk visning af data i Workbench mangler endnu at blive bekræftet.
+- `main` er forbundet med `https://github.com/Abdel047/Intelligent-IoT-API.git`. Ændringerne er ikke committed eller pushet.
+- Den gamle `iot.db` er bevaret som backup. Historiske målinger er ikke flyttet til MySQL.
+
+## Teknologi og arkitektur
+
+Python 3.13, FastAPI, Pydantic, SQLAlchemy, Uvicorn, PyMySQL, MySQL 8.4, Docker Compose, Postman og pytest.
+
+**MySQL er databaseserveren**, som gemmer data. **MySQL Workbench er et grafisk program på Windows**, der forbinder til serveren og viser tabellerne. Workbench starter ikke selv MySQL-containeren.
+
+```mermaid
+flowchart LR
+    Sensor[IoT-sensor] --> API
+    Postman[Postman: testklient] --> API
+    subgraph Docker[Docker Compose]
+        API[FastAPI: validering og API-nøgle] --> Logic[Domænelogik: over 25 m/s?]
+        Logic --> DB[(MySQL 8.4)]
+        DB --> Alarm[Gemte alarmer]
+    end
+    Workbench[MySQL Workbench på Windows] --> DB
+```
+
+En gyldig måling giver `SensorValueReceived`. Over 25 m/s følger `AnomalyDetected` og `AlarmCreated`. Ved kvittering gemmes `AlarmAcknowledged`. Ugyldigt input afvises før lagring. Events er databaseposter, ikke en ekstern beskedkø.
+
+## 1. Start med Docker
+
+Åbn projektmappen i VS Code og en PowerShell-terminal. På den nuværende computer er den:
 
 ```text
 C:\Users\Bruger\OneDrive\Desktop\Intelligent-IoT-API
 ```
 
-Åbn **Terminal → New Terminal**. Brug PowerShell, og kør fra projektmappen:
-
-```powershell
-$env:API_KEY = (Get-Content -LiteralPath .env | Where-Object { $_.StartsWith('API_KEY=') }).Substring(8).Trim()
-.\.venv\Scripts\python.exe -m uvicorn main:app --reload
-```
-
-Første linje henter din eksisterende nøgle fra den lokale `.env`. Anden linje starter serveren. Din `.env` er allerede oprettet på denne computer; den følger ikke med på GitHub.
-
-- API: http://127.0.0.1:8000
-- Swagger: http://127.0.0.1:8000/docs
-- OpenAPI: http://127.0.0.1:8000/openapi.json
-
-Lad terminalen være åben. Stop serveren med **Ctrl+C**. `--reload` genstarter automatisk serveren ved kodeændringer og er beregnet til lokal udvikling.
-
-Hvis serveren allerede kører og svarer, skal du ikke starte en ekstra kopi. En fejl om, at port 8000 er optaget, betyder normalt, at en anden server allerede bruger porten. En server, der blev startet i baggrunden, stoppes ikke ved Ctrl+C i en anden terminal.
-
-## 3. Installation på en ny computer
-
-Projektet er udviklet med Python 3.13 på Windows. Installér Python, og åbn projektmappen i PowerShell. Det virtuelle miljø `.venv` skal oprettes på ny; det skal ikke kopieres mellem computere.
+Første gang på en ny computer:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts/prepare_env.py
 ```
 
-`requirements.txt` indeholder API'ets pakker. `requirements-dev.txt` tilføjer testpakker. Du behøver ikke aktivere miljøet, når du bruger den fulde sti til Python som ovenfor.
+På den nuværende computer er miljø og `.env` allerede klargjort. Scriptet udfylder kun manglende/tomme værdier og bevarer eksisterende nøgler og passwords.
 
-Opret en ny lokal nøgle og en `.env` **kun hvis filen ikke allerede findes**:
+**Forudsætning:** Docker Desktop skal være installeret og køre med Linux-containere. På Windows kan WSL2 og aktiveret virtualisering være nødvendigt. Hvis installationen kræver genstart, gem dit arbejde og genstart manuelt. Projektet genstarter ikke Windows automatisk.
+
+Stop en eventuel lokal Uvicorn-server, som bruger port 8000. Kør derefter:
 
 ```powershell
-if (-not (Test-Path -LiteralPath .env)) {
-    $newApiKey = (.\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))")
-    Set-Content -LiteralPath .env -Value "API_KEY=$newApiKey" -Encoding utf8
-}
+docker compose up --build -d
+docker compose ps
 ```
 
-Start derefter som beskrevet i afsnit 2. Del ikke `.env`. `.env.example` viser variabelnavnene uden en rigtig nøgle.
+Første start kan tage flere minutter. `mysql` og `api` skal blive `healthy`.
 
-### Konfiguration
+- API: http://localhost:8000
+- Swagger: http://localhost:8000/docs
+- Health: http://localhost:8000/health
 
-| Variabel | Betydning |
+Et fungerende health check svarer `{"status":"ok","database":"connected"}`. API'et venter ved første opstart på MySQL-healthcheck. API'et bruger ikke root-brugeren.
+
+### Daglig drift og persistens
+
+```powershell
+docker compose stop
+docker compose start
+```
+
+Eller genstart begge services med `docker compose restart`. Volume `mysql_data` gemmer MySQL-data uafhængigt af containerne. `docker compose down` fjerner containere og netværk, men bevarer som standard det navngivne volume. **Brug ikke `docker compose down -v`**, hvis du vil bevare data.
+
+MySQL opretter bruger/database ved første initialisering af et tomt volume. At ændre password i `.env` ændrer ikke et allerede eksisterende MySQL-password. Slet ikke volumen som løsning; planlæg et passwords-skift i databasen.
+
+## 2. Hemmeligheder og konfiguration
+
+`.env.example` indeholder kun feltnavne og ufølsomme standardværdier. Rigtige værdier ligger lokalt i `.env`, som ikke må deles. Docker Compose læser `.env` automatisk til variabelsubstitution; lokal Uvicorn gør ikke.
+
+| Variabel | Formål |
 | --- | --- |
-| `API_KEY` | Påkrævet. Mindst 32 tegn uden indledende eller afsluttende mellemrum. |
-| `DATABASE_URL` | Valgfri. Standard er SQLite-filen `iot.db` ved siden af `database.py`. |
+| `API_KEY` | Headeren `X-API-Key`; mindst 32 tegn. |
+| `MYSQL_DATABASE` | Standard `intelligent_iot`. |
+| `MYSQL_USER` | Dedikeret bruger, standard `iot_user`. |
+| `MYSQL_PASSWORD` | Brugerens lokale password. |
+| `MYSQL_ROOT_PASSWORD` | Separat password til databaseadministration. |
+| `MYSQL_PUBLISHED_PORT` | Windows-port til MySQL, standard 3306. |
+| `API_PORT` | Windows-port til API'et, standard 8000. |
 
-Programmet indlæser **ikke** `.env` automatisk. Startkommandoen læser kun `API_KEY` fra filen. Hvis du senere ønsker en anden database, skal `DATABASE_URL` sættes som miljøvariabel i terminalen.
+Compose giver API'et `MYSQL_HOST=mysql` på det interne Docker-netværk. Workbench bruger derimod `127.0.0.1`. SQLAlchemy bygger forbindelsen med `URL.create`, så specialtegn i passwords håndteres korrekt.
 
-## 4. Brug Postman i VS Code
+MySQL-porten og API-porten bindes kun til localhost. Løsningen er til lokal brug og har ikke offentlig HTTPS-adgang. Brug ikke `.env`, private Postman-eksporter eller `docker compose config` med udfyldte hemmeligheder i screenshots eller afleveringer.
 
-### Den request, du allerede har
+## 3. Se data i MySQL Workbench
 
-Din importerede GET-request til `/readings` virker allerede med API-nøglen. Gem den med **Save**, så du kan bruge den igen. Hvis nøglen ændres, skal requestens header opdateres.
+Når Docker-services er sunde:
 
-### Opret en request manuelt
+1. Åbn MySQL Workbench. Ved **Database Connections** klikker du **+**.
+2. Vælg en almindelig MySQL TCP/IP-forbindelse.
+3. Udfyld:
 
-1. Åbn Postman, og vælg **New HTTP Request**.
-2. Vælg **GET**, og brug `http://127.0.0.1:8000/readings`.
-3. Under **Headers** tilføjer du `X-API-Key` som Key.
-4. Åbn `.env`, og kopiér kun værdien efter `API_KEY=` ind som Value. Skriv ikke filnavnet `.env` i feltet.
-5. Klik **Send**. Forvent **200 OK** og en liste med gemte målinger.
+   | Felt | Værdi |
+   | --- | --- |
+   | Connection Name | `Intelligent IoT lokal` |
+   | Hostname | `127.0.0.1` |
+   | Port | `3306` eller din `MYSQL_PUBLISHED_PORT` |
+   | Username | Værdien af `MYSQL_USER` i `.env` |
+   | Password | Værdien af `MYSQL_PASSWORD` i `.env` |
+   | Default Schema | `intelligent_iot` eller din `MYSQL_DATABASE` |
 
-Du kan også bruge **Authorization → API Key** med samme Key og Value og vælge **Header**. Vælg én metode, så du undgår dobbelte headers.
+4. Klik **Test Connection** og gem forbindelsen. I den nyere Workbench-version kan feltnavnene variere lidt; brug de samme forbindelsesværdier.
+5. Åbn forbindelsen. Find databasen under **Schemas** og udvid **Tables**. Opdatér objektlisten, hvis tabellerne ikke vises med det samme.
+6. Åbn en SQL-fane og kør:
 
-### Lokal collection
+```sql
+USE intelligent_iot;
+SELECT * FROM sensor_readings ORDER BY id DESC;
+SELECT * FROM domain_events ORDER BY id DESC;
+SELECT * FROM alarms ORDER BY id DESC;
+```
 
-`Intelligent-IoT.local.postman_collection.json` indeholder otte færdige requests og den lokale API-nøgle. Filen er udelukket fra Git og må ikke deles. Import via **Import → File** blev afvist i den installerede VS Code-udvidelse. Den enkelte GET-request blev i stedet importeret via cURL og fungerer. Collection-import er derfor ikke en forudsætning for at bruge API'et.
+SQL'en findes også i `docs/inspect_mysql.sql`. Send derefter en ny måling fra Postman og kør SELECT igen. Et allerede vist resultat opdaterer ikke sig selv.
 
-Hvis collectionen kan importeres i din Postman-version, arver requests dens API-nøgle. Request 5 vælger den første aktive alarm, som request 6 kan kvittere. POST og PATCH ændrer data, når de sendes. En ny nøgle i `.env` opdaterer ikke automatisk collectionen.
+Workbench er installeret. MySQL svarer på localhost:3306, og direkte SQL-læsning med projektets databasebruger er verificeret. Den grafiske forbindelse i Workbench skal stadig åbnes og bekræftes.
 
-## 5. Endpoints
+## 4. Postman og Swagger
 
-Alle URL'er nedenfor har udgangspunkt i `http://127.0.0.1:8000`.
+Importér `postman/Intelligent-IoT.postman_collection.json`. Den delbare fil indeholder **ingen API-nøgle**. Sæt collection-variablen `api_key` til den lokale værdi fra `.env` og `base_url` til `http://localhost:8000`. Alle datarequests arver headeren `X-API-Key` fra collectionen. Undlad at synkronisere/eksportere den udfyldte nøgle.
 
-| Metode | Sti | Formål | Succes | API-nøgle |
-| --- | --- | --- | --- | --- |
-| GET | `/` | Enkel kontrol af, at API'et svarer | 200 | Nej |
-| GET | `/docs` | Swagger-testside | 200 | Nej |
-| GET | `/openapi.json` | Maskinlæsbar API-beskrivelse | 200 | Nej |
-| POST | `/readings` | Gem måling og opret eventuel alarm | 201 | Ja |
-| GET | `/readings` | Vis alle målinger | 200 | Ja |
-| GET | `/events` | Vis alle domænehændelser i ID-rækkefølge | 200 | Ja |
-| GET | `/alarms` | Vis aktive alarmer som standard | 200 | Ja |
-| GET | `/alarms?status=acknowledged` | Vis kvitterede alarmer | 200 | Ja |
-| GET | `/alarms?status=all` | Vis hele alarmhistorikken | 200 | Ja |
-| PATCH | `/alarms/{alarm_id}/acknowledge` | Kvittér en eksisterende alarm | 200 | Ja |
+Hvis filimport fejler i VS Code-udvidelsen, opret en almindelig HTTP-request og sæt headeren manuelt. Den eksisterende lokale private collection opdateres ikke automatisk ved fremtidige nøgleskift.
 
-Swagger: Klik **Authorize**, indsæt din nøgle, og brug derefter **Try it out → Execute**.
+I Swagger klikker du **Authorize**, indsætter nøglen og bruger **Try it out → Execute**.
 
-### Send en måling
+### Eksempel: måling med alarm
 
-I Postman vælger du **POST** til `/readings`, **Body → raw → JSON**, og sender:
+POST `http://localhost:8000/readings`, Body → raw → JSON:
 
 ```json
 {
@@ -127,140 +184,181 @@ I Postman vælger du **POST** til `/readings`, **Body → raw → JSON**, og sen
 }
 ```
 
-Eksempel på svar; ID og tidspunkt varierer:
+Forvent **201 Created**, `anomaly_detected: true`, ID og UTC-tidspunkt. Kontrollér `/events`, `/alarms` og tabellerne i Workbench.
 
-```json
-{
-  "created_at": "2026-11-09T09:48:07.329210+00:00",
-  "id": 1,
-  "device_id": "WT-01",
-  "wind_speed": 30.0,
-  "anomaly_detected": true
-}
-```
+Send derefter `{"device_id":"WT-02","wind_speed":15}`. Den gemmes, men giver ingen alarm. Præcis **25 m/s** er også normal. Negative værdier giver **422** uden lagring.
 
-`device_id` skal indeholde mindst ét tegn, som ikke er whitespace, og må højst være 100 tegn. `wind_speed` skal være en endelig numerisk værdi fra 0 til 80 m/s. Præcis 25 m/s giver ingen alarm; 30 m/s gør.
+### Endpoints
 
-### Kvittér en alarm
+| Metode | Endpoint | Formål | Nøgle |
+| --- | --- | --- | --- |
+| GET | `/` | Enkel information | Nej |
+| GET | `/health` | Kontrol af API og database | Nej |
+| GET | `/docs` | Swagger-dokumentation | Nej |
+| POST | `/readings` | Gem og kontrollér måling; 201 | Ja |
+| GET | `/readings` | Alle målinger | Ja |
+| GET | `/events` | Domænehændelser i ID-rækkefølge | Ja |
+| GET | `/alarms` | Aktive alarmer | Ja |
+| GET | `/alarms?status=all` | Hele alarmhistorikken | Ja |
+| GET | `/alarms?status=acknowledged` | Kvitterede alarmer | Ja |
+| PATCH | `/alarms/{alarm_id}/acknowledge` | Kvittér uden body | Ja |
 
-Find ID'et med `GET /alarms`. Send derefter eksempelvis:
+Manglende/forkert nøgle giver **401**, ukendt alarm giver **404**, ugyldigt input giver **422**, og databasefejl giver **503** uden interne databaseoplysninger. Kvittering betyder, at alarmen er set, ikke at problemet er repareret. Gentaget kvittering giver ikke ekstra events.
 
-```text
-PATCH http://127.0.0.1:8000/alarms/1/acknowledge
-```
+## 5. Databasedesign
 
-Ingen body er nødvendig. Erstat `1` med det aktuelle alarm-ID. Svaret indeholder `status: acknowledged` og `acknowledged_at`. Kvittering betyder, at alarmen er set; det betyder ikke, at fejlen er repareret. En gentaget kvittering opretter ikke endnu en hændelse.
-
-### Fejl, du kan møde
-
-| Resultat | Forklaring |
+| Tabel | Felter |
 | --- | --- |
-| 401 | API-nøglen mangler eller er forkert. |
-| 404 | Alarm-ID'et findes ikke. |
-| 422 | Input er ugyldigt, eksempelvis negativ vindhastighed eller en ukendt status. |
-| 503 | En databasehandling fejlede. Svaret viser ikke interne databasedetaljer. |
-| Connection refused | Serveren kører ikke, eller adressen/porten er forkert. |
-| Opstart fejler med `API_KEY` | Sæt nøglen i terminalen som vist i afsnit 2. |
+| `sensor_readings` | `id`, `device_id`, `wind_speed`, `anomaly_detected`, `created_at` |
+| `domain_events` | `id`, `reading_id`, `alarm_id`, `device_id`, `event_type`, `event_data`, `created_at` |
+| `alarms` | `id`, `reading_id`, `device_id`, `message`, `status`, `created_at`, `acknowledged_at` |
 
-## 6. Domæne, arkitektur og database
+ID'er er primærnøgler. Events og alarmer refererer til målingen med fremmednøgler. En måling har højst én alarm. `event_data` er JSON; API'et bevarer det eksisterende navn `payload` for samme data. Tider behandles som UTC, og MySQL gemmer mikrosekunder.
 
-```mermaid
-flowchart LR
-    A[Postman eller sensor] --> B[FastAPI: API-nøgle og validering]
-    B --> C[SensorValueReceived]
-    C --> D{Vindhastighed over 25 m/s?}
-    D -- Ja --> E[AnomalyDetected]
-    E --> F[AlarmCreated]
-    D -- Nej --> G[Ingen alarm]
-    F --> H[AlarmAcknowledged ved kvittering]
+Måling, events og alarm gemmes i én transaktion. Ved fejl rulles hele handlingen tilbage. SQLAlchemy bruger parameteriserede værdier. Hver måling over grænsen giver sin egen alarm, også hvis en tidligere alarm på installationen stadig er aktiv.
+
+`create_all` opretter tabeller i en tom database, men migrerer ikke eksisterende tabeller. Databasemigreringer skal tilføjes, hvis skemaet senere ændres i en database med data.
+
+### Den gamle SQLite-database
+
+`iot.db` er urørt og indeholder dine gamle demonstrationer. Den er ikke migreret og bruges ikke af Docker. Det nye event-skema har ekstra felter, så den nye kode skal ikke peges på den gamle fil uden en planlagt migration.
+
+Til lokal udvikling uden Docker bruges nu en separat `iot-dev.db`. Sæt nøglen og start:
+
+```powershell
+$env:API_KEY = (Get-Content -LiteralPath .env | Where-Object { $_.StartsWith('API_KEY=') }).Substring(8).Trim()
+.\.venv\Scripts\python.exe -m uvicorn main:app --reload
 ```
 
-Hændelserne gemmes som rækker i databasen; der er ingen ekstern beskedkø. Forretningsreglen findes som `THRESHOLD = 25` i `main.py`. Hver måling over grænsen opretter sin egen alarm, også når samme installation allerede har en aktiv alarm.
+Det er en SQLite-udviklingstilstand, ikke en test af MySQL. `DATABASE_URL` kan angives eksplicit som miljøvariabel og har forrang over MySQL-variabler. Historiske SQLite-data flyttes kun efter godkendelse.
 
-| Tabel | Indhold og relationer |
-| --- | --- |
-| `sensor_readings` | Målingens ID, installation, vindhastighed, afvigelsesresultat og tidspunkt. |
-| `alarms` | Alarmens ID, unik reference til målingen, installation, besked, status og tidspunkter. |
-| `domain_events` | Hændelsens ID, type, reference til måling, eventuel reference til alarm, JSON-data og tidspunkt. |
+## 6. Test og verificering
 
-`reading_id` binder flowet sammen. `alarm_id` er tomt på hændelser uden alarmreference. Tidspunkter vises i UTC med `+00:00`.
-
-En måling, dens events og eventuelle alarm gemmes i **én transaktion**: enten gemmes alt, eller også rulles hele handlingen tilbage. SQLAlchemy bruger parameteriseret databaseadgang. SQLite-fremmednøgler er slået til.
-
-`iot.db` oprettes ved opstart og overlever servergenstart. Åbn den med et SQLite-værktøj, hvis du vil undersøge tabellerne; den er ikke en almindelig tekstfil. Undlad at slette filen, hvis du vil bevare data. De tidligere Python-lister er erstattet af databasen; gamle listeværdier kan ikke genskabes efter genstart.
-
-## 7. Projektfiler
-
-```text
-Intelligent-IoT-API/
-├── main.py                      # API, validering, API-nøgle og domæneflow
-├── database.py                  # SQLAlchemy-tabeller og databaseforbindelse
-├── tests/
-│   └── test_api.py               # Automatiske tests med separate databaser
-├── requirements.txt             # Pakker til API'et
-├── requirements-dev.txt         # Pakker til udvikling og test
-├── README.md                    # Denne vejledning
-├── .env.example                 # Konfigurationseksempel uden hemmeligheder
-├── .gitignore                   # Udelukker lokale data og hemmeligheder
-├── .env                         # Lokal nøgle; må ikke deles
-├── iot.db                       # Lokal database; må ikke lægges på GitHub
-└── Intelligent-IoT.local.postman_collection.json  # Lokal privat collection
-```
-
-`.venv`, cachefiler, `.env`, SQLite-databasefiler og den private Postman-collection er udelukket fra Git.
-
-## 8. Automatiske tests
-
-Kør fra projektmappen:
+Automatiske, isolerede tests:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Seneste verificerede resultat: **37 passed**. Testene bruger deres egen testnøgle og midlertidige SQLite-filer; du behøver ikke starte serveren eller sætte din rigtige nøgle først. Din `iot.db` berøres ikke.
+40 tests bestod efter ændringerne. De kontrollerer validering, tærskel, events, relationer, transaktion/rollback, kvittering, persistens ved genåbning, API-nøgler og health check. De bruger separate midlertidige SQLite-filer og ikke din MySQL-database eller gamle `iot.db`.
 
-Testene dækker normale målinger, grænseværdier, ugyldigt input, events, alarmrelationer, kvittering, gentaget kvittering, permanent lagring efter genåbning, rollback ved databasefejl, manglende/forkert nøgle, manglende konfiguration og OpenAPI-sikkerhedsbeskrivelsen.
+Når Docker kører, kan integrationen kontrolleres med:
 
-Den installerede Starlette-version giver en deprecation-advarsel om httpx i testklienten. Det er en advarsel om en fremtidig ændring; de 37 tests bestod med de installerede versioner.
+```powershell
+.\.venv\Scripts\python.exe scripts/verify_stack.py --restart
+```
 
-### Hvis Windows blokerer SQLAlchemy
+Scriptet opretter **tre nye DEMO-målinger** på 15, 25 og 30 m/s via HTTP. Det læser dem direkte fra MySQL og kontrollerer events/alarm. Med `--restart` genstarter det Compose-services og kontrollerer de samme data igen. Det sletter ingen målinger. Scriptet er kørt med `--restart` og bestod. Det oprettede DEMO-målingerne med ID 1, 2 og 3 og bekræftede, at målinger, events og alarm stadig fandtes efter genstart af begge services.
 
-På denne computer blokerede programkontrol den kompilerede SQLAlchemy-udvidelse. Pakken blev derfor installeret som ren Python. Hvis samme fejl opstår ved geninstallation:
+Den tidligere Windows-programkontrol blokerede SQLAlchemys kompilerede udvidelser. Hvis fejlen gentager sig lokalt, kan ren Python installeres uden at ændre sikkerhedsindstillinger:
 
 ```powershell
 $env:DISABLE_SQLALCHEMY_CEXT = '1'
 .\.venv\Scripts\python.exe -m pip install --force-reinstall --no-binary SQLAlchemy SQLAlchemy==2.1.8
 ```
 
-Dette ændrer ikke Windows' sikkerhedsindstillinger.
+## 7. Fejlfinding
 
-## 9. Forslag til demonstration på cirka fem minutter
+- **Docker-kommando findes ikke:** Færdiggør Docker-installationen og åbn en ny terminal.
+- **Docker kan ikke forbinde til engine:** Åbn Docker Desktop og vent på, at engine er klar. Følg eventuelle krav om WSL2 og genstart.
+- **Port 8000 optaget:** Stop den tidligere lokale Uvicorn-server. Stop kun projektets proces, ikke andre programmer vilkårligt.
+- **Port 3306 optaget:** Vælg eksempelvis `MYSQL_PUBLISHED_PORT=3307` i `.env`, og brug samme port i Workbench. Den interne MySQL-port er fortsat 3306.
+- **401:** Opdatér Postman med den aktuelle `API_KEY`. Filnavnet `.env` er ikke en nøgle.
+- **MySQL bliver ikke healthy:** Se lokalt `docker compose logs --tail=60 mysql`. Kontrollér opstartsstatus og brugerkonfiguration. Del ikke eventuelle følsomme loglinjer.
+- **Tom database i Workbench:** Kontrollér at du er på `intelligent_iot`, og at API'et faktisk kører i Docker med MySQL; den gamle SQLite-fil er separat.
 
-1. Forklar problemet: høj vindhastighed skal opdages, så kontrolcentret kan reagere.
-2. Send 20 m/s og derefter 30 m/s. Vis forskellen i `anomaly_detected`.
-3. Vis `/events` og sammenhængen via `reading_id`.
-4. Vis den aktive alarm, kvittér den, og vis historikken.
-5. Vis, at data stadig findes efter servergenstart, og fremvis testresultatet.
+## 8. GitHub og studiegruppen
 
-Du behøver ikke gentage alle manuelle tests ved hver opstart. Gem dine requests til demonstrationen; brug de automatiske tests ved kodeændringer.
+Eksisterende repository: `https://github.com/Abdel047/Intelligent-IoT-API`, branch `main`. Fjernforbindelsen blev verificeret med `git ls-remote`; det eksisterende første commit findes på GitHub.
 
-## 10. Hvad mangler før den samlede aflevering?
+`.gitignore` udelukker `.venv`, caches, `.env`, lokale databaser og private Postman-filer. `.dockerignore` tillader kun Dockerfile, requirements og API-kildefiler i build-context, så lokale nøgler og databaser ikke indbygges i imaget.
 
-| Område | Status og næste arbejde |
-| --- | --- |
-| Lokal API og SQLite | Implementeret og testet. |
-| Domænehændelser og kvittering | Implementeret og testet. |
-| API-nøgle | Implementeret; én fælles nøgle giver samme rettigheder til alle. |
-| Rate limiting | Ikke implementeret. |
-| GitHub | Repository og publicering er ikke opsat som del af arbejdet her. |
-| CI/CD | GitHub Actions-workflows er ikke oprettet. |
-| PostgreSQL | Generelle SQLAlchemy-typer er anvendt; driver, migreringer og PostgreSQL-test mangler. |
-| Azure | Ingen ressourcer oprettet og ingen deployment udført. App Service, PostgreSQL, HTTPS og hemmelighedshåndtering skal opsættes efter godkendelse. |
-| Monitorering | Grundlæggende lokal logging findes. Application Insights/Azure Monitor mangler. |
-| Rapport | PDF på 5–7 sider skal udarbejdes. |
+Den gamle database og den gamle private collection er fjernet fra Git-indekset, men bevaret lokalt. Git kan derfor vise **D** for dem: det er planlagt fjernelse fra repositoryet, ikke sletning af din lokale backup. Tidligere commits indeholder stadig den gamle collection med en nøgle. Nøglen er allerede udskiftet; historikoprydning skal aftales med gruppen.
 
-Før offentlig drift bør løsningen desuden få databasemigreringer, pagination på lister, en backupplan og en vurdering af adgangsrettigheder og belastningsbegrænsning. `create_all` opretter manglende tabeller, men opdaterer ikke strukturen i eksisterende tabeller.
+Se ændringerne før en commit:
 
-Serveren lytter som standard kun på denne computer. Adressen `127.0.0.1` giver ikke adgang fra en anden computer. Den offentlige HTTPS-adgang hører til den senere deployment.
+```powershell
+git status --short
+git diff --stat
+git diff --cached --stat
+```
 
-Der er ikke oprettet betalingsressourcer eller udført deployment. Azure-ressourcer og deployment kræver din godkendelse.
+Når arbejdet er gennemgået, kan en commit oprettes med udvalgte kildefiler. Kontrollér altid `git diff --cached --name-only` først. Der er ikke udført commit eller push af disse ændringer. Push til GitHub kræver godkendelse.
+
+Gruppemedlemmer kloner repositoryet, opretter `.venv` og kører `scripts/prepare_env.py` til deres egne lokale hemmeligheder. Arbejd på branches og gennemgå ændringer via pull requests. GitHub Actions er nu defineret i `.github/workflows/ci.yml`. Workflowen skal først uploades, før den kan køre på GitHub. Azure er en senere mulighed; ingen cloudressourcer er oprettet.
+
+## 9. Projektstruktur
+
+```text
+main.py                    API, sikkerhed og domænelogik
+database.py                SQLAlchemy-modeller og databasevalg
+Dockerfile                 API-image, kører som bruger uden root
+compose.yaml               API + MySQL og persistent volume
+.dockerignore              Begrænser build-context
+.env.example               Feltnavne uden hemmeligheder
+requirements*.txt          Runtime- og testpakker
+tests/test_api.py          Isolerede tests
+scripts/prepare_env.py     Lokal konfiguration uden nøglelækage
+scripts/verify_stack.py    HTTP/SQL/persistenskontrol mod Docker
+docs/inspect_mysql.sql     Forespørgsler til Workbench
+postman/                   Delbar collection uden nøgle
+README.md                  Start-, test- og afleveringsvejledning
+```
+
+## 10. Demonstration og rapport
+
+Forslag til en femminutters video:
+
+1. 0:00–0:40: Forretningsproblem og regelbaseret event-flow.
+2. 0:40–1:20: Vis `docker compose ps` og `/health`.
+3. 1:20–2:20: Send 30 m/s i Postman; vis alarm og events.
+4. 2:20–3:20: Vis de samme rækker i MySQL Workbench; send derefter 15 m/s uden alarm.
+5. 3:20–4:20: Genstart containerne og vis, at data stadig findes.
+6. 4:20–5:00: Vis testresultat, GitHub-kode og begrænsninger.
+
+Disposition til rapport på 5–7 sider: A) Problem og domæne, B) løsningsdesign og arkitektur, C) implementering og database, D) DevSecOps/Docker/GitHub, E) kvalitet og drift, F) refleksion. Reflektér over falske alarmer, fast tærskel, manglende roller/rate limiting/pagination, databasemigreringer og forskellen på en lokal prototype og en produktionsløsning.
+
+## Officiel dokumentation
+
+- [Docker Compose: opstartsorden og health checks](https://docs.docker.com/compose/how-tos/startup-order/)
+- [MySQL official Docker image: initialisering og persistens](https://hub.docker.com/_/mysql)
+- [SQLAlchemy: MySQL og PyMySQL](https://docs.sqlalchemy.org/en/21/dialects/mysql.html)
+- [Docker Desktop til Windows og WSL-krav](https://docs.docker.com/desktop/setup/install/windows-install/)
+
+
+## Se MySQL-tabeller direkte i VS Code
+
+SQLTools og SQLTools MySQL-driveren er installeret. Projektets `.vscode/settings.json` indeholder forbindelsen **Intelligent IoT - MySQL (nyt login)**, men intet password. `.vscode/extensions.json` anbefaler samme udvidelser til studiegruppen.
+
+1. Åbn kommandopaletten med Ctrl+Shift+P, og vælg **SQLTools: Connect**.
+2. Vælg **Intelligent IoT - MySQL (nyt login)**.
+3. Indtast værdien fra `MYSQL_PASSWORD` i din lokale `.env`, når du bliver spurgt.
+4. Åbn SQLTools-panelet, udvid databasen og **Tables**, og vælg **Show Table Records** på en tabel.
+5. Alternativt åbner du `docs/inspect_mysql.sql` og bruger **SQLTools Connection: Run This File**.
+
+Hvis udvidelsen ikke vises endnu, brug **Developer: Reload Window** fra kommandopaletten. Forbindelsen i brugerfladen er først verificeret, når du har indtastet password og kan se resultater. Workbench er stadig tilgængeligt, men er valgfrit.
+
+
+## Automatiske kontroller på GitHub — sådan læser du CI
+
+**CI betyder, at GitHub automatisk kontrollerer koden, hver gang nogen sender ændringer op eller opretter en pull request.**
+
+Workflowen ligger i `.github/workflows/ci.yml` og gør følgende:
+
+1. Henter koden og installerer Python 3.13 og projektets pakker.
+2. Kører de 40 isolerede pytest-tests.
+3. Genererer nye midlertidige CI-passwords; den bruger ikke din lokale `.env` eller dine rigtige nøgler.
+4. Kontrollerer Compose-konfigurationen og bygger API'ets Docker-image.
+5. Starter API og MySQL på GitHubs midlertidige Linux-maskine og venter på health checks.
+6. Sender tre DEMO-målinger, kontrollerer SQL-data og verificerer persistens efter genstart.
+7. Stopper CI-containere, også hvis et tidligere trin fejler.
+
+**Grønt flueben:** alle trin bestod. **Rødt kryds:** et trin fejlede; klik på kørslen og det røde trin for at læse fejlen. GitHub viser resultatet under repositoryets **Actions**-fane. Efter den første upload kan **Run workflow** også bruges manuelt.
+
+Workflowen bygger og tester. Den uploader ikke Docker-images til et registry, deployer ikke til Azure og kontakter ikke din lokale database. GitHub Actions-kørslen er ikke verificeret, før filen er pushet og kørt på GitHub. Afhængigt af kontoens kvote kan Actions i private repositories være begrænset; aktivér ikke betalt ekstraforbrug for dette projekt.
+
+### Næste upload til GitHub
+
+Der er fortsat ét oprindeligt commit på `main`. Den næste upload skal indeholde den nye MySQL/Docker-løsning, workflowen, tests, dokumentation og den delbare Postman-collection. Den skal også indeholde fjernelsen af den gamle database og private collection fra Git-sporing. Dine lokale datafiler bevares.
+
+Gennemgå filerne før commit. `.env`, `iot.db`, `iot-dev.db`, `.venv` og private Postman-eksporter må ikke indgå. En push sender de gennemgåede commits til gruppens eksisterende repository og starter workflowen. Push udføres først efter din godkendelse.
