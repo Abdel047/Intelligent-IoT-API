@@ -1,0 +1,183 @@
+{
+  "info": {
+    "name": "Intelligent IoT API — lokal",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Lokal collection med privat API-nøgle. Må ikke deles eller lægges på GitHub. Request 2, 3 og 6 ændrer data, når du klikker Send."
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{api_key}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "G8Y54bbqAQTnYXQCuFkxz232VqIdOLvHGGxjwzCRkqc",
+      "type": "string"
+    },
+    {
+      "key": "alarm_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Se gemte målinger",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/readings"
+      }
+    },
+    {
+      "name": "2. Send normal måling (20 m/s)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/readings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_id\": \"WT-02\",\n  \"wind_speed\": 20\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "3. Send måling med alarm (30 m/s)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/readings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_id\": \"WT-01\",\n  \"wind_speed\": 30\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "4. Se domænehændelser",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/events"
+      }
+    },
+    {
+      "name": "5. Se aktive alarmer og vælg første",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/alarms"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const alarms = pm.response.json();",
+              "  if (alarms.length > 0) {",
+              "    pm.collectionVariables.set(\"alarm_id\", String(alarms[0].id));",
+              "  } else {",
+              "    pm.collectionVariables.set(\"alarm_id\", \"\");",
+              "  }",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Kvittér valgt alarm",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": "{{base_url}}/alarms/{{alarm_id}}/acknowledge"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get(\"alarm_id\")) {",
+              "  throw new Error(\"Kør først request 3 og derefter request 5 for at vælge en aktiv alarm.\");",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Se hele alarmhistorikken",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/alarms?status=all"
+      }
+    },
+    {
+      "name": "8. Prøv ugyldig måling (forvent 422)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/readings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_id\": \"WT-01\",\n  \"wind_speed\": -1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
