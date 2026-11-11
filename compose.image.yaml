@@ -1,0 +1,5 @@
+# Brug det færdige image fra GitHub Packages i stedet for at bygge lokalt.
+# Start med --no-build som beskrevet i README.
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/abdel047/intelligent-iot-api:latest}

@@ -46,7 +46,7 @@ API'et gemmer vindmålinger, registrerer overskridelser af **25 m/s** og oprette
 - **40 automatiske tests består med separate SQLite-testdatabaser.** Der er én deprecation-advarsel fra Starlettes testklient om httpx.
 - Dockerfile og Compose til FastAPI + MySQL 8.4 er bygget og startet. Integrationstest har verificeret 15/25/30 m/s via HTTP og direkte SQL, inklusive persistens efter genstart af begge containere.
 - MySQL Workbench, Docker Desktop og WSL er installeret. Docker engine svarer, Compose-konfigurationen validerer, og begge services er startet. Grafisk visning af data i Workbench mangler endnu at blive bekræftet.
-- `main` er forbundet med `https://github.com/Abdel047/Intelligent-IoT-API.git`. Ændringerne er ikke committed eller pushet.
+- `main` er forbundet med `https://github.com/Abdel047/Intelligent-IoT-API.git`. MySQL/Docker-løsningen og CI er uploadet i commit `ad444b1`; den tilhørende CI-kørsel er grøn. De seneste LAN/CD-ændringer afventer en ny godkendt upload.
 - Den gamle `iot.db` er bevaret som backup. Historiske målinger er ikke flyttet til MySQL.
 
 ## Teknologi og arkitektur
@@ -131,7 +131,7 @@ MySQL opretter bruger/database ved første initialisering af et tomt volume. At 
 
 Compose giver API'et `MYSQL_HOST=mysql` på det interne Docker-netværk. Workbench bruger derimod `127.0.0.1`. SQLAlchemy bygger forbindelsen med `URL.create`, så specialtegn i passwords håndteres korrekt.
 
-MySQL-porten og API-porten bindes kun til localhost. Løsningen er til lokal brug og har ikke offentlig HTTPS-adgang. Brug ikke `.env`, private Postman-eksporter eller `docker compose config` med udfyldte hemmeligheder i screenshots eller afleveringer.
+MySQL-porten og den almindelige API-port bindes kun til localhost. Den valgfrie LAN-konfiguration tilføjer HTTPS på en privat netværksadresse. Der er ingen router-forwarding eller offentlig internet-deployment. Brug ikke `.env`, private Postman-eksporter eller `docker compose config` med udfyldte hemmeligheder i screenshots eller afleveringer.
 
 ## 3. Se data i MySQL Workbench
 
@@ -283,9 +283,9 @@ git diff --stat
 git diff --cached --stat
 ```
 
-Når arbejdet er gennemgået, kan en commit oprettes med udvalgte kildefiler. Kontrollér altid `git diff --cached --name-only` først. Der er ikke udført commit eller push af disse ændringer. Push til GitHub kræver godkendelse.
+Når arbejdet er gennemgået, kan en commit oprettes med udvalgte kildefiler. Kontrollér altid `git diff --cached --name-only` først. Den oprindelige MySQL/Docker/CI-opdatering er committed og pushet. Seneste lokale ændringer skal gennemgås før næste upload. Push til GitHub kræver godkendelse.
 
-Gruppemedlemmer kloner repositoryet, opretter `.venv` og kører `scripts/prepare_env.py` til deres egne lokale hemmeligheder. Arbejd på branches og gennemgå ændringer via pull requests. GitHub Actions er nu defineret i `.github/workflows/ci.yml`. Workflowen skal først uploades, før den kan køre på GitHub. Azure er en senere mulighed; ingen cloudressourcer er oprettet.
+Gruppemedlemmer kloner repositoryet, opretter `.venv` og kører `scripts/prepare_env.py` til deres egne lokale hemmeligheder. Arbejd på branches og gennemgå ændringer via pull requests. GitHub Actions er nu defineret i `.github/workflows/ci.yml`. CI er uploadet og har kørt med succes. Den nye leveringsdel (CD) skal først uploades og verificeres. Azure er en senere mulighed; ingen cloudressourcer er oprettet.
 
 ## 9. Projektstruktur
 
@@ -336,7 +336,7 @@ SQLTools og SQLTools MySQL-driveren er installeret. Projektets `.vscode/settings
 4. Åbn SQLTools-panelet, udvid databasen og **Tables**, og vælg **Show Table Records** på en tabel.
 5. Alternativt åbner du `docs/inspect_mysql.sql` og bruger **SQLTools Connection: Run This File**.
 
-Hvis udvidelsen ikke vises endnu, brug **Developer: Reload Window** fra kommandopaletten. Forbindelsen i brugerfladen er først verificeret, når du har indtastet password og kan se resultater. Workbench er stadig tilgængeligt, men er valgfrit.
+Hvis udvidelsen ikke vises endnu, brug **Developer: Reload Window** fra kommandopaletten. SQLTools-forbindelsen er verificeret ved visning af målinger i brugerfladen. Workbench er også installeret; hvis afleveringen specifikt kræver Workbench, skal samme tabeller vises dér efter vejledningen i docs/AFLEVERINGSSTATUS.md.
 
 
 ## Automatiske kontroller på GitHub — sådan læser du CI
@@ -355,10 +355,82 @@ Workflowen ligger i `.github/workflows/ci.yml` og gør følgende:
 
 **Grønt flueben:** alle trin bestod. **Rødt kryds:** et trin fejlede; klik på kørslen og det røde trin for at læse fejlen. GitHub viser resultatet under repositoryets **Actions**-fane. Efter den første upload kan **Run workflow** også bruges manuelt.
 
-Workflowen bygger og tester. Den uploader ikke Docker-images til et registry, deployer ikke til Azure og kontakter ikke din lokale database. GitHub Actions-kørslen er ikke verificeret, før filen er pushet og kørt på GitHub. Afhængigt af kontoens kvote kan Actions i private repositories være begrænset; aktivér ikke betalt ekstraforbrug for dette projekt.
+CI bygger og tester i et isoleret miljø. Den nye CD-del leverer efter en godkendt push til `main` et testet image til GitHub Container Registry (GHCR). Den deployer ikke til Azure og kontakter ikke din lokale database. CI-kørslen for commit `ad444b1` er verificeret med succes. Den nye CD-jobdel er endnu ikke kørt på GitHub. Afhængigt af kontoens kvote kan Actions i private repositories være begrænset; aktivér ikke betalt ekstraforbrug for dette projekt.
 
 ### Næste upload til GitHub
 
-Der er fortsat ét oprindeligt commit på `main`. Den næste upload skal indeholde den nye MySQL/Docker-løsning, workflowen, tests, dokumentation og den delbare Postman-collection. Den skal også indeholde fjernelsen af den gamle database og private collection fra Git-sporing. Dine lokale datafiler bevares.
+Der er mindst to commits på `main`; MySQL/Docker/CI blev uploadet som `ad444b1`. Den næste upload skal indeholde den nye MySQL/Docker-løsning, workflowen, tests, dokumentation og den delbare Postman-collection. Den skal også indeholde fjernelsen af den gamle database og private collection fra Git-sporing. Dine lokale datafiler bevares.
 
 Gennemgå filerne før commit. `.env`, `iot.db`, `iot-dev.db`, `.venv` og private Postman-eksporter må ikke indgå. En push sender de gennemgåede commits til gruppens eksisterende repository og starter workflowen. Push udføres først efter din godkendelse.
+
+
+## Aflevering: adgang fra en anden enhed med HTTPS
+
+Standardkommandoen `docker compose up --build -d` er stadig til lokal brug. For at åbne API'et på samme netværk bruges et valgfrit Caddy-lag. MySQL forbliver på `127.0.0.1:3306`, og API'ets HTTP-port forbliver på `127.0.0.1:8000`.
+
+```powershell
+.\scripts\start_lan.ps1
+```
+
+Scriptet finder computerens private netværksadresse, starter gatewayen og gemmer dens offentlige CA-certifikat i `certs/iot-local-root.crt`. Gatewayens private nøgler bliver i Docker-volumen. Åbn dernæst en PowerShell som administrator og kør projektets `scripts/enable_lan_firewall.ps1`. Reglen tillader kun HTTPS-porten på den valgte lokale adresse fra `LocalSubnet`; den gælder også, når Windows betegner Wi-Fi som offentligt. Netværksprofilen ændres ikke.
+
+### På den anden computer
+
+1. Forbind til samme betroede lokale netværk. Skole-/gæstenet kan blokere trafik mellem enheder.
+2. Overfør kun den offentlige fil `certs/iot-local-root.crt` via en betroet kanal. Sammenlign eventuelt dens SHA-256-fingeraftryk på begge computere.
+3. I Postman tilføjes filen under **Settings → Certificates → CA Certificates**. Behold certifikatkontrollen slået til. En browser kræver, at samme lokale CA er betroet i browserens/operativsystemets certifikatlager. Brug ikke 'ignorer certifikatfejl'.
+4. Åbn adressen, som `start_lan.ps1` udskriver, eksempelvis `https://192.168.205.222:8443/health`. IP-adressen kan skifte; eksemplet er ikke en permanent adresse.
+5. Brug samme HTTPS-baseadresse til `/readings` og send headeren `X-API-Key` med den lokale nøgle. Del nøglen separat og privat med den, som skal demonstrere API'et. Send den aldrig via URL'en.
+6. Send en måling og kontrollér den nye række i SQLTools eller Workbench på værtscomputeren.
+
+Certifikat og hostname valideres ved den lokale HTTPS-kontrol. Manglende API-nøgle giver fortsat 401. Adgang fra en fysisk anden enhed skal stadig testes; en lokal kontrol er ikke dokumentation for netværkets klientadgang.
+
+Ved netværksskift køres `start_lan.ps1` og firewallscriptet igen. Fjern firewalladgangen med `scripts/enable_lan_firewall.ps1 -Remove` som administrator. Stop kun HTTPS-laget med:
+
+```powershell
+docker compose -f compose.yaml -f compose.lan.yaml stop gateway
+```
+
+### CI og CD: hvad er forskellen i dette projekt?
+
+- **CI:** tester kode, bygger Docker og kontrollerer MySQL/persistens. Den eksisterende CI-kørsel er grøn.
+- **Continuous Delivery (CD):** den nye `deliver-image`-jobdel leverer automatisk et versioneret image til GHCR efter bestået CI på `main`. Den bruger GitHubs kortlivede token med `packages: write`; PR-kørsler udgiver ikke images. Private pakkers adgang skal kontrolleres i GitHub før deling. Ingen betalt ekstraforbrug aktiveres af projektet.
+- **Lokal deployment:** kør `scripts/deploy_local.ps1` eller `scripts/deploy_local.ps1 -Lan`. Det bygger de aktuelle lokale kildefiler og opdaterer containerne med bevaret databasevolume.
+
+Den lokale deployment er et manuelt godkendt trin. Projektet har ikke automatisk Continuous Deployment til et permanent miljø. Hvis underviseren kræver dette, skal driftsmål og adgang aftales særskilt. GHCR-jobbet er klargjort, men kan først erklæres verificeret, når den nye workflow er uploadet og kørt.
+
+Officiel dokumentation: [Caddys lokale HTTPS-certifikater](https://caddyserver.com/docs/automatic-https) og [GitHub Container Registry med Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images).
+
+
+### Seneste lokale kontrol af afleveringsændringerne
+
+HTTPS med valideret certifikat, API-nøglekontrol og POST til MySQL er verificeret fra værtscomputeren. DEMO-LAN-HTTPS blev oprettet som måling 16 med tre events og én alarm. Den lokale deploymentkommando med `-Lan` bestod. Firewallreglen er aktiv på TCP 8443 og den aktuelle private adresse med `LocalSubnet` som afsenderbegrænsning. Adgang via LAN-adressen til port 8000 og 3306 blev afvist som forventet.
+
+Den opdaterede workflow er kontrolleret med actionlint, og de 40 automatiske tests består. Test fra en fysisk anden computer, visning i Workbench og selve GHCR-publiceringen er endnu ikke bekræftet. Se den korte [afleveringscheckliste](docs/AFLEVERINGSSTATUS.md).
+
+Windows PowerShell kan kræve tilladelse til lokale scripts. Til firewallopsætningen kan følgende køres i et administratorvindue; indstillingen gælder kun denne proces:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\enable_lan_firewall.ps1
+```
+
+
+## Studiegruppen: hent det færdige image fra GitHub Packages
+
+Når CD-jobbet har publiceret pakken, findes API-imaget som `ghcr.io/abdel047/intelligent-iot-api:latest`. Repositoryet indeholder stadig Compose-filerne til både API og MySQL. Pakken indeholder API-koden og dependencies, ikke dine lokale passwords eller databaseindhold.
+
+1. Acceptér invitationen til det private repository, og klon det i VS Code.
+2. Installér/start Docker Desktop. Opret en lokal `.env` med Python-scriptet i installationsvejledningen. Hvert gruppemedlem bruger egne lokale nøgler/passwords.
+3. Hvis pakken er privat, log ind i GHCR med dit eget GitHub-brugernavn. Brug et personligt GitHub-token med `read:packages` som password i Docker-prompten; skriv ikke tokenet i kommandoen eller i projektfiler. Din GitHub-konto skal også have adgang til pakken. Repository-ejeren kontrollerer pakkens adgang under Package settings og dens tilknytning til repositoryet.
+
+```powershell
+docker login ghcr.io -u DIT_GITHUB_BRUGERNAVN
+docker compose -f compose.yaml -f compose.image.yaml pull
+docker compose -f compose.yaml -f compose.image.yaml up --no-build -d --wait
+```
+
+Åbn http://localhost:8000/docs. Brug API_KEY fra din egen lokale `.env`. MySQL er på din egen computer med din egen databasevolume. De målinger, som findes på projektforfatterens computer, følger ikke med imaget.
+
+For en bestemt verificeret udgave kan `API_IMAGE=ghcr.io/abdel047/intelligent-iot-api:HELE_COMMIT_SHA` sættes lokalt før start. `latest` peger på den seneste leverede main-version. Slet ikke MySQL-volumen ved opdatering.
+
+GitHub Packages er distribution af Docker-images. Den starter ikke automatisk en fælles API-server på internettet.

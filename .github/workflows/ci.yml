@@ -58,3 +58,41 @@ jobs:
       - name: Stop CI-containere
         if: always()
         run: docker compose down --remove-orphans
+
+  deliver-image:
+    name: CD - lever testet Docker-image til GHCR
+    needs: test-and-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Hent den testede kode
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Byg versioneret release-image
+        shell: bash
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "RELEASE_IMAGE=$image" >> "$GITHUB_ENV"
+          docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag "$image:$GITHUB_SHA" --tag "$image:latest" .
+
+      - name: Log ind i GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Lever Docker-image
+        run: |
+          docker push "$RELEASE_IMAGE:$GITHUB_SHA"
+          docker push "$RELEASE_IMAGE:latest"
+          echo "### Testet image klar" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image: \`$RELEASE_IMAGE:$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log ud af registry
+        if: always()
+        run: docker logout ghcr.io

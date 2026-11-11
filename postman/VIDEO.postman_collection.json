@@ -1,0 +1,118 @@
+{
+  "info": {
+    "_postman_id": "e86679ad-8d13-4c23-acaf-c5b0b709a3e6",
+    "name": "VIDEO - Intelligent IoT",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Video-requests uden hemmeligheder. Sæt api_key privat i Postman før brug."
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{api_key}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1 - Normal vind: 20 m/s",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/readings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_id\": \"VIDEO-WT-01\",\n  \"wind_speed\": 20\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "2 - Hoj vind: 30 m/s",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/readings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_id\": \"VIDEO-WT-02\",\n  \"wind_speed\": 30\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "3 - Vis domaenehaendelser",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/events"
+      }
+    },
+    {
+      "name": "4 - Vis aktive alarmer",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/alarms"
+      }
+    },
+    {
+      "name": "5 - Vis alle maalinger",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/readings"
+      }
+    },
+    {
+      "name": "6 - Kontroller API og database",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/health"
+      }
+    }
+  ]
+}

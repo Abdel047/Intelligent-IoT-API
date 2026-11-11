@@ -1,0 +1,11 @@
+{
+    auto_https disable_redirects
+    skip_install_trust
+    admin off
+    default_sni {$LAN_HOST}
+}
+
+https://{$LAN_HOST}, https://localhost {
+    tls internal
+    reverse_proxy api:8000
+}

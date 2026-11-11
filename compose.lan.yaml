@@ -1,0 +1,19 @@
+# Valgfrit HTTPS-lag. API og MySQL beholder deres localhost-bindinger.
+services:
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${LAN_HOST:?Kør scripts/start_lan.ps1 først}:${LAN_HTTPS_PORT:-8443}:443"
+    environment:
+      LAN_HOST: ${LAN_HOST:?LAN_HOST mangler}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  caddy_data:
+  caddy_config:
