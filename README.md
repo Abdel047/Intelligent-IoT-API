@@ -1,5 +1,62 @@
 # Intelligent IoT API
 
+## Webdashboard — hele overblikket på én side
+
+Åbn **http://localhost:8000/dashboard**. Dashboardet er en del af den eksisterende FastAPI-container, ikke en separat demo. Forsiden `/` og alle eksisterende API-endpoints er bevaret.
+
+### Start
+
+```powershell
+.\.venv\Scripts\python.exe scripts/prepare_env.py
+docker compose up --build -d --wait
+```
+
+`prepare_env.py` tilføjer nu en separat `DASHBOARD_PASSWORD` til din lokale `.env` uden at ændre eksisterende udfyldte nøgler eller MySQL-passwords. Brug den adgangskode på login-siden. Det er ikke API_KEY eller MYSQL_PASSWORD. Kopiér den privat fra `.env`, og luk filen før demonstration. Du kan også køre `.\scripts\copy_dashboard_password.ps1` for at kopiere den uden at udskrive den.
+
+### Funktioner
+
+- Overblik med API-health, database-health, antal målinger, aktive alarmer og seneste vind.
+- Interaktiv vindgraf med tidsstempler, device-id, tærskel og røde overskridelser.
+- Alarmoversigt med kvittering via det eksisterende PATCH-endpoint.
+- Databasevisning af de tre tabeller med søgning, sortering, sideinddeling og JSON-detaljer.
+- System flow, der forbinder en måling til dens events og alarm via reading_id.
+- API-testformular, som sender til det rigtige POST /readings og viser statuskode og respons.
+- Automatisk opdatering hvert femte sekund; kan pauses.
+
+**Docker-status er markeret “Ikke tilgængelig”.** Vi monterer ikke Docker-socket eller giver browseren administrative rettigheder. API- og database-health måles reelt og må ikke fortolkes som direkte inspektion af containerne.
+
+### Adgang og sikkerhed
+
+Browseren får en tilfældig HttpOnly/SameSite-sessioncookie efter login. API-nøglen bliver på serveren. Dashboardets serverdel bruger intern ASGI-transport til de eksisterende FastAPI-endpoints og tilføjer X-API-Key på serversiden. Der er ingen fri proxy-URL og ingen direkte databaseforbindelse fra browseren. Skrivehandlinger kræver både session og CSRF-token. Loginforsøg begrænses, og sessionerne udløber efter fire timer. Genstart af API-containeren kræver nyt login.
+
+Hvis DASHBOARD_PASSWORD mangler eller er kortere end 16 tegn, er dashboard-login lukket; API'et fungerer fortsat med sin API-nøgle. På localhost bruges lokal HTTP. Ved adgang fra andre enheder skal den eksisterende HTTPS-gateway bruges; Caddy sender også dashboardets routes videre. Del ikke dashboardpassword på en video.
+
+Dette er én fælles driftsadgang, ikke et fuldt brugersystem med individuelle roller. Sessions og loginbegrænsning ligger i serverhukommelsen og er beregnet til én API-proces. Lists hentes samlet fra de eksisterende endpoints; meget store databaser kræver senere pagination på serversiden.
+
+### Docker, CI og installation hos gruppen
+
+Dashboardets HTML/CSS/JavaScript ligger i `dashboard/`, serverdelen i `dashboard_api.py`. Dockerfile og .dockerignore medtager disse filer i API-imaget. Compose sender kun dashboardpasswordet ind i API-containeren; ingen ny port eller frontend-service er nødvendig. Caddy/mysql-services og databasevolumes er bevaret.
+
+En anden computer kan klone projektet, generere egen `.env` og køre samme Compose-kommando. Ved push til main tester GitHub Actions løsningen og publicerer derefter det opdaterede image til `ghcr.io/abdel047/intelligent-iot-api:latest`. Se den konkrete kørsel under repositoryets Actions-fane.
+
+Eksisterende tests er bevaret. Nye tests i `tests/test_dashboard.py` dækker login, sessions, rate limiting, CSRF, origin-kontrol, korrekt 20/30-event-flow og kvittering. Seneste lokale kørsel: **51 tests bestået**. Browserkontrol med eksisterende Microsoft Edge har verificeret login, navigation, mobilvisning, liveopdatering, søgning/detaljer, oprettelse af 20/30-målinger og kvittering af den nye testalarm. Der kræves ingen Node/npm-build; browserfilerne serveres direkte og bruger ingen CDN'er.
+
+
+## Simulerede vindmålinger over tid
+
+Der findes et valgfrit script med **579 simulerede målinger**, fordelt på tre installationer (`SIM-WIND-01`, `02`, `03`) hvert kvarter over 48 timer. Vindhastigheden ændrer sig gradvist og indeholder korte vindstød. Målinger over 25 m/s får AnomalyDetected og AlarmCreated, mens alle får SensorValueReceived. Hændelsens source er `simulated_demo`. Dette er konstruerede undervisningsdata, ikke rigtige sensorobservationer.
+
+```powershell
+# Forhåndsvisning uden databaseændringer:
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py
+# Tilføj data til den eksisterende lokale MySQL-database:
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py --apply
+```
+
+Scriptet anvender din lokale .env og localhost-porten til MySQL. Det opretter ikke database/tabeller, ændrer ikke eksisterende rækker og gemmer hele datasættet i én transaktion. Gentagen kørsel springes over, hvis en SIM-WIND-installation allerede findes. Brug det efter første opstart af API'et. Data er lokale i MySQL-volumet; GitHub og Docker-imaget indeholder kun scriptet, aldrig din database eller dine passwords.
+
+Overblikkets graf viser SIM-WIND-01, når installationen findes. Under Vindmålinger kan alle installationer vælges. Kurver forbinder kun samme installation, og ophold over 90 minutter vises som huller. Seneste måling sorteres efter tidspunkt, så historiske demodata ikke forveksles med en nyere måling.
+
 ## Kort fortalt — sådan læser du løsningen
 
 **Du sender en måling → API'et kontrollerer den → MySQL gemmer resultatet → SQLTools viser tabellerne.**

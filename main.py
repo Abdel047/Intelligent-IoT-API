@@ -13,6 +13,7 @@ from sqlalchemy import select, update, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from dashboard_api import install_dashboard
 from database import Alarm, Base, configured_database_url, DomainEvent, Reading, make_engine, utc_now
 
 logger = logging.getLogger("uvicorn.error")
@@ -175,6 +176,7 @@ def create_app(database_url: str | None = None):
         return AlarmOutput.model_validate(alarm)
 
     app.include_router(router)
+    install_dashboard(app, SensorReading, THRESHOLD)
     return app
 
 

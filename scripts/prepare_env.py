@@ -12,6 +12,7 @@ for i, line in enumerate(lines):
         existing[key.strip()] = (i, value.strip())
 defaults = {
     "API_KEY": secrets.token_urlsafe(32),
+    "DASHBOARD_PASSWORD": secrets.token_urlsafe(24),
     "MYSQL_DATABASE": "intelligent_iot", "MYSQL_USER": "iot_user",
     "MYSQL_PASSWORD": secrets.token_hex(24),
     "MYSQL_ROOT_PASSWORD": secrets.token_hex(24),

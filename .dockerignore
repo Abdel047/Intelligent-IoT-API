@@ -4,3 +4,6 @@
 !requirements.txt
 !main.py
 !database.py
+!dashboard_api.py
+!dashboard/
+!dashboard/**
