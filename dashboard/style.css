@@ -5,3 +5,13 @@
 
 /* Læsevenlige tabeller og navigation ved almindelig skærmzoom. */
 .nav-item{font-size:13px}td{font-size:12px}.kpi-header{font-size:11px}.kpi-sub{font-size:10px}.alarm-mini strong{font-size:12px}.alarm-mini p{font-size:11px}.chart-footer{font-size:10px}.system-strip{font-size:11px}
+
+/* Enkel visning: færre statuskort og mindre visuel støj. */
+:root{--sidebar:220px;--bg:#0d1420;--panel:#141e2c;--border:#2a3545}
+.sidebar{padding:24px 14px}.brand small,.sidebar-label,.sidebar-note,.workspace,.avatar,.page-heading .eyebrow,.card-header .eyebrow,footer,.login-art,.login-security{display:none}
+.sidebar nav{margin-top:32px}.sidebar-bottom{padding-top:16px}
+.topbar{height:58px;padding:0 28px}.page-heading h1{font-size:28px;letter-spacing:-.5px;margin-top:0}.page-heading p{font-size:14px}
+main{padding:28px;max-width:1500px}.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.kpi{min-height:114px;padding:18px}.kpi-value{margin:12px 0 6px}.kpi-header{font-size:12px}.kpi-header .icon{display:none}.kpi-sub{font-size:11px}.kpi.alert{background:var(--panel)}
+.card,.kpi{border-radius:7px}.card-header h2{font-size:18px}.chart-card .card-header{flex-wrap:wrap}.chart-card .card-header p{max-width:390px;margin-top:8px}.chart-summary{flex-wrap:wrap}.legend{font-size:11px}.chart-footer{font-size:11px;flex-wrap:wrap}.alarm-mini strong{font-size:13px}.alarm-mini p,.text-link,.row-action,.segmented button{font-size:12px}.nav-item{font-size:14px;padding:12px}.system-strip{justify-content:flex-start;gap:28px;background:transparent}.login-screen{display:flex;justify-content:center;align-items:center;min-height:100dvh}.login-card{margin:30px;max-width:390px}
+@media(max-width:1100px){.overview-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){:root{--sidebar:220px}main{padding:20px 16px}.topbar{padding:0 16px}.kpi-grid{gap:10px}.kpi{padding:14px;min-height:110px}.page-heading h1{font-size:25px}.legend{margin-left:0;width:100%}.chart-summary{gap:8px}.login-card{width:calc(100% - 40px);margin:20px}}

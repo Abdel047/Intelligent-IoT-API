@@ -22,12 +22,12 @@ const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"
 document.querySelectorAll("[data-icon]").forEach(el => el.innerHTML = icon(el.dataset.icon));
 const state = {data:null,csrf:null,view:"overview",auto:true,range:"24h",device:"all",alarmStatus:"all",table:"readings",search:"",sort:"id",direction:-1,page:0,flowId:null};
 const pages = {
- overview:["Overblik","Driften, i overblik.","Følg vinden. Opdag afvigelser. Reagér i tide."],
- readings:["Vindmålinger","Vinden, i detaljer.","Se udviklingen og find målinger fra den enkelte installation."],
- alarms:["Alarmer","Fra afvigelse til handling.","Følg aktive og kvitterede alarmer på tværs af installationer."],
- database:["Database","Data med sammenhæng.","Undersøg målinger, hændelser og alarmer fra din eksisterende database."],
- flow:["System flow","Følg signalet.","Se præcis hvilke hændelser og alarmer der hører til en måling."],
- test:["API test","Send. Kontrollér. Forstå.","Prøv det rigtige event-flow direkte fra kontrolcentret."]
+ overview:["Overblik","Overblik","Vindmålinger og alarmer samlet ét sted."],
+ readings:["Vindmålinger","Vindmålinger","Se udviklingen og find målinger fra den enkelte installation."],
+ alarms:["Alarmer","Alarmer","Følg aktive og kvitterede alarmer på tværs af installationer."],
+ database:["Database","Database","Undersøg målinger, hændelser og alarmer fra din eksisterende database."],
+ flow:["Hændelser","Hændelsesforløb","Se præcis hvilke hændelser og alarmer der hører til en måling."],
+ test:["Send måling","Send en måling","Indtast en installation og vindhastighed for at teste API’et."]
 };
 const date = (value, short=false) => value ? new Date(value).toLocaleString("da-DK",short?{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}:{dateStyle:"short",timeStyle:"medium"}) : "—";
 const num = (value) => Number(value).toLocaleString("da-DK", {maximumFractionDigits:2});
@@ -88,12 +88,12 @@ function renderOverview(){
   ["AKTIVE ALARMER",ready?num(active.length):"—",active.length?"Afventer opmærksomhed":"Ingen aktive alarmer","bell","",false],
   ["SENESTE VIND",ready&&latest?`${num(latest.wind_speed)} <small>m/s</small>`:"—",latest?latest.device_id:"Ingen målinger endnu","activity",latest?.anomaly_detected?"wind-high":"teal",false]
  ];
- $("kpis").innerHTML=cards.map((c,i)=>`<article class="kpi ${i===4&&active.length?"alert":""}"><div class="kpi-header"><span>${c[0]}</span>${icon(c[3])}</div><div class="kpi-value ${c[4]} ${c[5]?"compact":""}">${i===5?c[1]:esc(c[1])}</div><div class="kpi-sub">${i<2?`<span class="status-dot ${i===1&&!ready?"red":""}"></span>`:""}${esc(c[2])}</div></article>`).join("");
+ $("kpis").innerHTML=cards.map((c,i)=>`<article class="kpi ${i===4&&active.length?"alert":""}"><div class="kpi-header"><span>${c[0]}</span>${icon(c[3])}</div><div class="kpi-value ${c[4]} ${c[5]?"compact":""}">${i===5?c[1]:esc(c[1])}</div><div class="kpi-sub">${i<2?`<span class="status-dot ${i===1&&!ready?"red":""}"></span>`:""}${esc(c[2])}</div></article>`).filter((_,i)=>i!==1&&i!==2).join("");
  const chartLatest=chartRows().at(-1);$("chartLatest").textContent=chartLatest?`${num(chartLatest.wind_speed)} m/s`:"—";
  $("alarmMiniCount").textContent=active.length;
  $("recentAlarms").innerHTML=active.length?active.slice(0,4).map(a=>`<div class="alarm-mini"><span class="status-dot red"></span><div><strong>${esc(a.device_id)}</strong><p>${esc(a.message)}</p><button class="text-link" data-flow="${a.reading_id}">Måling #${a.reading_id} →</button></div><span class="alarm-time">${date(a.created_at,true)}</span></div>`).join(""):'<div class="empty">Ingen aktive alarmer.<br>Driften kræver ingen kvittering lige nu.</div>';
  $("recentReadings").innerHTML=readingTable(latestFirst(d.readings).slice(0,5));
- $("systemStrip").innerHTML=`<span>${icon("activity")} FastAPI: ${esc(d.api_status)}</span><span>${icon("database")} Database: ${ready?"forbundet":"afbrudt"}</span><span>${icon("server")} API / MySQL / gateway: containerstatus ikke tilgængelig</span>`;
+ $("systemStrip").innerHTML=`<span>${icon("activity")} FastAPI: ${esc(d.api_status)}</span><span>${icon("database")} Database: ${ready?"forbundet":"afbrudt"}</span>`;
  drawChart("overviewChart",chartRows());$("chartCount").textContent=`${chartRows().length} målinger i visningen`;
 }
 function chartRows(){const d=state.data;let rows=[...d.readings];if(d.readings.some(r=>r.device_id==="SIM-WIND-01"))rows=rows.filter(r=>r.device_id==="SIM-WIND-01");if(state.range!=="all"){const cutoff=Date.now()-(state.range==="24h"?86400000:604800000);rows=rows.filter(r=>Date.parse(r.created_at)>=cutoff);}return rows.sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id-b.id);}

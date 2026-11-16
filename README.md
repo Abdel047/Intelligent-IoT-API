@@ -15,7 +15,7 @@ docker compose up --build -d --wait
 
 ### Funktioner
 
-- Overblik med API-health, database-health, antal målinger, aktive alarmer og seneste vind.
+- Enkelt overblik med fire statuskort: API-status, antal målinger, aktive alarmer og seneste vind. Database-health vises nederst.
 - Interaktiv vindgraf med tidsstempler, device-id, tærskel og røde overskridelser.
 - Alarmoversigt med kvittering via det eksisterende PATCH-endpoint.
 - Databasevisning af de tre tabeller med søgning, sortering, sideinddeling og JSON-detaljer.
@@ -23,7 +23,7 @@ docker compose up --build -d --wait
 - API-testformular, som sender til det rigtige POST /readings og viser statuskode og respons.
 - Automatisk opdatering hvert femte sekund; kan pauses.
 
-**Docker-status er markeret “Ikke tilgængelig”.** Vi monterer ikke Docker-socket eller giver browseren administrative rettigheder. API- og database-health måles reelt og må ikke fortolkes som direkte inspektion af containerne.
+Dashboardet viser API- og database-health. Direkte Docker-status vises ikke i den enkle brugerflade. Vi monterer ikke Docker-socket eller giver browseren administrative rettigheder. Brug Docker Desktop til at se containerstatus.
 
 ### Adgang og sikkerhed
 
