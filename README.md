@@ -305,16 +305,7 @@ postman/                   Delbar collection uden nøgle
 README.md                  Start-, test- og afleveringsvejledning
 ```
 
-## 10. Demonstration og rapport
-
-Forslag til en femminutters video:
-
-1. 0:00–0:40: Forretningsproblem og regelbaseret event-flow.
-2. 0:40–1:20: Vis `docker compose ps` og `/health`.
-3. 1:20–2:20: Send 30 m/s i Postman; vis alarm og events.
-4. 2:20–3:20: Vis de samme rækker i MySQL Workbench; send derefter 15 m/s uden alarm.
-5. 3:20–4:20: Genstart containerne og vis, at data stadig findes.
-6. 4:20–5:00: Vis testresultat, GitHub-kode og begrænsninger.
+## 10. Rapport
 
 Disposition til rapport på 5–7 sider: A) Problem og domæne, B) løsningsdesign og arkitektur, C) implementering og database, D) DevSecOps/Docker/GitHub, E) kvalitet og drift, F) refleksion. Reflektér over falske alarmer, fast tærskel, manglende roller/rate limiting/pagination, databasemigreringer og forskellen på en lokal prototype og en produktionsløsning.
 
