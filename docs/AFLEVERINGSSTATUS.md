@@ -65,4 +65,3 @@ Den lokale løsning er klar til en cirka fem minutter lang demo med Docker → P
 - Alle syv runtime-/afhængighedsfiler er sammenlignet mellem kildekoden, den kørende lokale API-container og det hentede GHCR-image; de matcher med normaliserede linjeskift.
 - Rapporten afsluttes i et separat dokumentationscommit uden ændringer i runtime-koden. Hvert push på main testes og publiceres af samme workflow; den nyeste leverings konkrete SHA fremgår af repositoryets Actions og imagets revision-label. Et senere dokumentationscommit ændrer ikke ovenstående funktionelle release eller datamigreringen.
 - GHCR er distribution af Docker-images, ikke deployment til en offentlig server.
-
