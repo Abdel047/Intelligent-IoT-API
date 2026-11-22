@@ -20,7 +20,7 @@ const icons = {
 };
 const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.activity}</svg>`;
 document.querySelectorAll("[data-icon]").forEach(el => el.innerHTML = icon(el.dataset.icon));
-const state = {data:null,csrf:null,view:"overview",auto:true,range:"24h",device:"all",alarmStatus:"all",table:"readings",search:"",sort:"id",direction:-1,page:0,flowId:null};
+const state = {data:null,csrf:null,view:"overview",auto:true,range:"7d",overviewDevice:null,device:"all",readingRange:"all",alarmStatus:"all",table:"readings",search:"",sort:"id",direction:-1,page:0,flowId:null};
 const pages = {
  overview:["Overblik","Overblik","Vindmålinger og alarmer samlet ét sted."],
  readings:["Vindmålinger","Vindmålinger","Se udviklingen og find målinger fra den enkelte installation."],
@@ -79,6 +79,13 @@ setInterval(()=>{if(state.auto&&state.csrf&&!document.hidden)refresh();},5000);
 function latestFirst(rows){return [...rows].sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)||b.id-a.id);}
 function renderView(){if(!state.data)return;({overview:renderOverview,readings:renderReadings,alarms:renderAlarms,database:renderDatabase,flow:renderFlow,test:()=>{}})[state.view]();}
 function renderOverview(){
+ const devices=[...new Set(state.data.readings.map(r=>r.device_id))].sort();
+ if(state.overviewDevice===null)state.overviewDevice=devices.includes("AFLEVERING-01")?"AFLEVERING-01":devices.includes("SIM-WIND-01")?"SIM-WIND-01":"all";
+ const select=$("overviewDevice");
+ const options='<option value="all">Alle installationer</option>'+devices.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");
+ if(select.innerHTML!==options)select.innerHTML=options;
+ select.value=state.overviewDevice;
+
  const d=state.data,ready=d.database_status==="connected",latest=latestFirst(d.readings)[0],active=latestFirst(d.alarms.filter(a=>a.status==="active"));
  const cards=[
   ["API STATUS","Online","Forbindelse til FastAPI","activity","teal",false],
@@ -96,7 +103,8 @@ function renderOverview(){
  $("systemStrip").innerHTML=`<span>${icon("activity")} FastAPI: ${esc(d.api_status)}</span><span>${icon("database")} Database: ${ready?"forbundet":"afbrudt"}</span>`;
  drawChart("overviewChart",chartRows());$("chartCount").textContent=`${chartRows().length} målinger i visningen`;
 }
-function chartRows(){const d=state.data;let rows=[...d.readings];if(d.readings.some(r=>r.device_id==="SIM-WIND-01"))rows=rows.filter(r=>r.device_id==="SIM-WIND-01");if(state.range!=="all"){const cutoff=Date.now()-(state.range==="24h"?86400000:604800000);rows=rows.filter(r=>Date.parse(r.created_at)>=cutoff);}return rows.sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id-b.id);}
+function chartRows(){const d=state.data;let rows=[...d.readings];if(state.overviewDevice!=="all")rows=rows.filter(r=>r.device_id===state.overviewDevice);if(state.range!=="all"){const cutoff=Date.now()-(state.range==="24h"?86400000:604800000);rows=rows.filter(r=>Date.parse(r.created_at)>=cutoff);}return rows.sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id-b.id);}
+$("overviewDevice").addEventListener("change",e=>{state.overviewDevice=e.target.value;renderOverview();});
 document.querySelectorAll("[data-range]").forEach(el=>el.addEventListener("click",()=>{state.range=el.dataset.range;document.querySelectorAll("[data-range]").forEach(b=>b.classList.toggle("selected",b.dataset.range===state.range));renderOverview();}));
 function drawChart(id,rows){
  const container=$(id);if(!rows.length){container.innerHTML='<div class="chart-empty">Ingen målinger i den valgte periode.<br>Prøv “Alle”, eller send en ny måling.</div>';return;}
@@ -109,9 +117,11 @@ function drawChart(id,rows){
  for(const r of rows){if(!groups.has(r.device_id))groups.set(r.device_id,[]);groups.get(r.device_id).push(r);}
  let curves="";
  for(const series of groups.values()){
+  const intervals=series.slice(1).map((r,i)=>Date.parse(r.created_at)-Date.parse(series[i].created_at)).filter(n=>n>0).sort((a,b)=>a-b);
+  const gapLimit=Math.max(5400000,3*(intervals[Math.floor(intervals.length/2)]||0));
   let segment=[];
   const flush=()=>{if(segment.length>1)curves+=`<polyline data-series="${esc(series[0].device_id)}" points="${segment.map(r=>`${x(r).toFixed(2)},${y(r.wind_speed).toFixed(2)}`).join(" ")}" fill="none" stroke="#3bd9bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;segment=[];};
-  for(const r of series){if(segment.length&&Date.parse(r.created_at)-Date.parse(segment.at(-1).created_at)>5400000)flush();segment.push(r);}flush();
+  for(const r of series){if(segment.length&&Date.parse(r.created_at)-Date.parse(segment.at(-1).created_at)>gapLimit)flush();segment.push(r);}flush();
  }
  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Vindhastigheder med grænse på ${threshold} meter pr. sekund"><defs><linearGradient id="shade-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3bd9bd" stop-opacity="0.18"/><stop offset="100%" stop-color="#3bd9bd" stop-opacity="0"/></linearGradient></defs>`;
  for(let i=0;i<=4;i++){const value=ymax*i/4,py=y(value);svg+=`<line x1="${L}" y1="${py}" x2="${W-R}" y2="${py}" stroke="#233147" stroke-dasharray="3 5"/><text x="${L-12}" y="${py+4}" text-anchor="end" fill="#71869f" font-size="10">${num(value)}</text>`;}
@@ -124,8 +134,9 @@ for(const id of ["overviewChart","readingsChart"]){const el=$(id);const show=e=>
 function readingTable(rows){return `<table><thead><tr><th>ID</th><th>INSTALLATION</th><th>VINDHASTIGHED</th><th>STATUS</th><th>TIDSPUNKT</th><th></th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td class="number">#${r.id}</td><td class="device-cell">${esc(r.device_id)}</td><td class="number ${r.anomaly_detected?"wind-high":""}">${num(r.wind_speed)} <span class="muted">m/s</span></td><td><span class="badge ${r.anomaly_detected?"bad":"good"}">${r.anomaly_detected?"Overskridelse":"Normal"}</span></td><td>${date(r.created_at,true)}</td><td><button class="row-action" data-flow="${r.id}">Se forløb →</button></td></tr>`).join(""):'<tr><td colspan="6" class="empty">Ingen målinger endnu.</td></tr>'}</tbody></table>`;}
 function renderReadings(){
  const devices=[...new Set(state.data.readings.map(r=>r.device_id))].sort();const select=$("deviceFilter");const options='<option value="all">Alle installationer</option>'+devices.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");if(select.innerHTML!==options){select.innerHTML=options;select.value=devices.includes(state.device)?state.device:"all";state.device=select.value;}
- const rows=state.data.readings.filter(r=>state.device==="all"||r.device_id===state.device);drawChart("readingsChart",[...rows].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id-b.id));$("readingsTable").innerHTML=readingTable(latestFirst(rows).slice(0,100));$("readingsTotal").textContent=`${rows.length} målinger · viser seneste 100`;
+ const cutoff=state.readingRange==="all"?0:Date.now()-(state.readingRange==="24h"?86400000:604800000);const rows=state.data.readings.filter(r=>(state.device==="all"||r.device_id===state.device)&&Date.parse(r.created_at)>=cutoff);drawChart("readingsChart",[...rows].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||a.id-b.id));$("readingsTable").innerHTML=readingTable(latestFirst(rows).slice(0,100));$("readingsTotal").textContent=`${rows.length} målinger · viser seneste 100`;
 }
+document.querySelectorAll("[data-reading-range]").forEach(el=>el.addEventListener("click",()=>{state.readingRange=el.dataset.readingRange;document.querySelectorAll("[data-reading-range]").forEach(b=>b.classList.toggle("selected",b===el));renderReadings();}));
 $("deviceFilter").addEventListener("change",e=>{state.device=e.target.value;renderReadings();});
 function renderAlarms(){const rows=latestFirst(state.data.alarms.filter(a=>state.alarmStatus==="all"||a.status===state.alarmStatus));$("alarmsTable").innerHTML=`<table><thead><tr><th>ALARM</th><th>INSTALLATION</th><th>MÅLING</th><th>BESKED</th><th>STATUS</th><th>OPRETTET</th><th>KVITTERET</th><th></th></tr></thead><tbody>${rows.length?rows.map(a=>`<tr><td class="number">#${a.id}</td><td class="device-cell">${esc(a.device_id)}</td><td><button class="text-link" data-flow="${a.reading_id}">#${a.reading_id}</button></td><td>${esc(a.message)}</td><td>${badge(a.status)}</td><td>${date(a.created_at,true)}</td><td>${date(a.acknowledged_at,true)}</td><td>${a.status==="active"?`<button class="row-action ack" data-ack="${a.id}">Kvittér alarm</button>`:'<span class="muted">Set</span>'}</td></tr>`).join(""):'<tr><td colspan="8" class="empty">Ingen alarmer i den valgte kategori.</td></tr>'}</tbody></table>`;}
 $("alarmFilters").addEventListener("click",e=>{const b=e.target.closest("[data-status]");if(!b)return;state.alarmStatus=b.dataset.status;$("alarmFilters").querySelectorAll("button").forEach(el=>el.classList.toggle("selected",el===b));renderAlarms();});

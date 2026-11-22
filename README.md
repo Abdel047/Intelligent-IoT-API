@@ -55,7 +55,24 @@ Der findes et valgfrit script med **579 simulerede målinger**, fordelt på tre 
 
 Scriptet anvender din lokale .env og localhost-porten til MySQL. Det opretter ikke database/tabeller, ændrer ikke eksisterende rækker og gemmer hele datasættet i én transaktion. Gentagen kørsel springes over, hvis en SIM-WIND-installation allerede findes. Brug det efter første opstart af API'et. Data er lokale i MySQL-volumet; GitHub og Docker-imaget indeholder kun scriptet, aldrig din database eller dine passwords.
 
-Overblikkets graf viser SIM-WIND-01, når installationen findes. Under Vindmålinger kan alle installationer vælges. Kurver forbinder kun samme installation, og ophold over 90 minutter vises som huller. Seneste måling sorteres efter tidspunkt, så historiske demodata ikke forveksles med en nyere måling.
+Overblikkets graf starter med AFLEVERING-01 og syv dage, når installationen findes; ellers bruges SIM-WIND-01 eller alle installationer. Vælg en anden installation direkte over grafen. Under Vindmålinger kan installation og periode også vælges. Kurver forbinder kun samme installation, og lange ophold vises som huller (over det største af 90 minutter og tre gange installationens medianinterval). Seneste måling sorteres efter tidspunkt, så historiske demodata ikke forveksles med en nyere måling.
+
+### Ekstra eksamensdata til AFLEVERING-01 og AFLEVERING-02
+
+Det eksisterende script har også profilen `aflevering`: **150 simulerede målinger** (75 til hver eksisterende installation) over de seneste syv dage. 144 er normale, og seks vindstød over 25 m/s får både AnomalyDetected og AlarmCreated. Alle målinger får SensorValueReceived. Tidspunkter gemmes som UTC, og demomarkøren ligger i hændelsens JSON; ingen nye tabeller eller API-felter er nødvendige.
+
+```powershell
+# Vis plan uden at ændre databasen:
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile aflevering
+# Pilot: højst fire nye målinger:
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile aflevering --limit 4 --apply
+# Tilføj resten (eller hele datasættet, hvis piloten ikke er kørt):
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile aflevering --apply
+```
+
+Eksisterende data bevares. En fast batchmarkør og målingsindeks sikrer, at gentagelser ikke giver dubletter, også når pilot og resten køres på forskellige tidspunkter. En MySQL-lås beskytter mod samtidige scriptkørsler. Scriptet genopfrisker ikke datoerne ved genkørsel; det samme datasæt tilføjes kun én gang.
+
+I dashboardet: **Vindmålinger → Installation: AFLEVERING-01 eller AFLEVERING-02 → 7 dage**. Periodevalget filtrerer både graf og tabel. Eksisterende målinger i perioden bliver også vist. Overblikket viser også installationsvalg, og SIM-WIND-01 kan fortsat vælges. Dine SELECT-forespørgsler med de to AFLEVERING-navne kan fortsat bruges uden ændringer. SQL kan vise UTC-tider, mens dashboardet viser lokal tid.
 
 ## Kort fortalt — sådan læser du løsningen
 

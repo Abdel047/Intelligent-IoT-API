@@ -25,18 +25,53 @@ def samples(end):
             yield device, round(max(0, baseline + variation + gust), 1), at
 
 
-def seed(session, end):
-    # Én atomisk transaktion, og ingen dubletter ved gentaget kørsel.
-    if session.scalar(select(Reading.id).where(Reading.device_id.in_(DEVICES)).limit(1)):
-        return 0, 0
+AFLEVERING_DEVICES = ("AFLEVERING-01", "AFLEVERING-02")
+AFLEVERING_BATCH = "aflevering-7d-v1"
+
+
+def aflevering_samples(end):
+    """150 simulerede observationer inden for syv dage, heraf seks vindstød."""
+    span = timedelta(days=7, minutes=-30)
+    for i in range(75):
+        at = end - span + span * (i / 74)
+        for offset, device in enumerate(AFLEVERING_DEVICES):
+            speed = round(16 + offset + 4.3 * math.sin(i / 6 + offset * .4)
+                          + 1.3 * math.sin(i / 2.1 + offset), 1)
+            if i in ((1, 18, 42, 63) if offset == 0 else (25, 52)):
+                speed = (28, 31)[offset] + (i % 3)
+            yield device, float(speed), at
+
+
+def seed(session, end, profile="standard", limit=None):
+    """Caller owns the transaction. A fixed batch and sample index allow safe resume."""
+    existing = set()
+    if profile == "aflevering":
+        payloads = session.scalars(select(DomainEvent.payload).where(
+            DomainEvent.device_id.in_(AFLEVERING_DEVICES),
+            DomainEvent.event_type == "SensorValueReceived"))
+        for payload in payloads:
+            if payload.get("demo_batch") == AFLEVERING_BATCH:
+                existing.add(payload["sample_index"])
+                end = datetime.fromisoformat(payload["series_end"])
+        source = aflevering_samples(end)
+    else:
+        if session.scalar(select(Reading.id).where(Reading.device_id.in_(DEVICES)).limit(1)):
+            return 0, 0
+        source = samples(end)
     count = alarms = 0
-    for device, speed, at in samples(end):
+    for index, (device, speed, at) in enumerate(source):
+        if index in existing:
+            continue
+        if limit is not None and count >= limit:
+            break
+        metadata = ({"demo_batch": AFLEVERING_BATCH, "sample_index": index,
+                     "series_end": end.isoformat()} if profile == "aflevering" else {})
         anomalous = speed > 25
         row = Reading(device_id=device, wind_speed=speed, anomaly_detected=anomalous, created_at=at)
         session.add(row)
         session.flush()
         session.add(DomainEvent(event_type="SensorValueReceived", reading_id=row.id, device_id=device,
-                               payload={"device_id": device, "wind_speed": speed, "source": "simulated_demo"}, created_at=at))
+                               payload={"device_id": device, "wind_speed": speed, "source": "simulated_demo", **metadata}, created_at=at))
         if anomalous:
             session.add(DomainEvent(event_type="AnomalyDetected", reading_id=row.id, device_id=device,
                                    payload={"wind_speed": speed, "threshold": 25, "rule": "wind_speed > 25"}, created_at=at))
@@ -53,11 +88,15 @@ def seed(session, end):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Gem de simulerede målinger i den eksisterende MySQL-database")
+    parser.add_argument("--profile", choices=("standard", "aflevering"), default="standard")
+    parser.add_argument("--limit", type=int, help="Tilføj højst dette antal nye målinger (pilotkørsel)")
     args = parser.parse_args()
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit skal være mindst 1")
     end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     end -= timedelta(minutes=end.minute % 15)
     if not args.apply:
-        print("Forhåndsvisning: 579 simulerede målinger over 48 timer. Brug --apply for at gemme.")
+        print("Forhåndsvisning: " + ("150 simulerede målinger over 7 dage til AFLEVERING-01/02." if args.profile == "aflevering" else "579 simulerede målinger over 48 timer.") + " Brug --apply for at gemme.")
         return
     values = {}
     for line in (Path(__file__).resolve().parents[1] / ".env").read_text(encoding="utf-8-sig").splitlines():
@@ -70,7 +109,11 @@ def main():
     engine = make_engine(url)
     try:
         with Session(engine) as session, session.begin():
-            count, alarms = seed(session, end)
+            # MySQL advisory lock serializes concurrent runs without schema changes.
+            from sqlalchemy import text
+            if session.scalar(text("SELECT GET_LOCK('iot_demo_seed', 10)")) != 1:
+                raise RuntimeError("Et andet demoscript kører. Prøv igen senere.")
+            count, alarms = seed(session, end, args.profile, args.limit)
         print(f"Gemt: {count} simulerede målinger og {alarms} alarmer. Eksisterende data er bevaret.")
     finally:
         engine.dispose()
