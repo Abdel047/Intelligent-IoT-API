@@ -39,6 +39,16 @@
       "key": "alarm_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "high_reading_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "normal_reading_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -74,14 +84,30 @@
         "url": "{{base_url}}/readings",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"device_id\": \"WT-02\",\n  \"wind_speed\": 20\n}",
+          "raw": "{\n  \"device_id\": \"VINDMOELLE-01\",\n  \"wind_speed\": 20\n}",
           "options": {
             "raw": {
               "language": "json"
             }
           }
         }
-      }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Måling gemt (201)\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "  const reading = pm.response.json();",
+              "  pm.test(\"Korrekt alarmregel\", () => pm.expect(reading.anomaly_detected).to.eql(false));",
+              "  pm.collectionVariables.set(\"normal_reading_id\", String(reading.id));",
+              "}"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "3. Send måling med alarm (30 m/s)",
@@ -96,14 +122,41 @@
         "url": "{{base_url}}/readings",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"device_id\": \"WT-01\",\n  \"wind_speed\": 30\n}",
+          "raw": "{\n  \"device_id\": \"VINDMOELLE-02\",\n  \"wind_speed\": 30\n}",
           "options": {
             "raw": {
               "language": "json"
             }
           }
         }
-      }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"high_reading_id\", \"\");",
+              "pm.collectionVariables.set(\"alarm_id\", \"\");"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Måling gemt (201)\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "  const reading = pm.response.json();",
+              "  pm.test(\"Korrekt alarmregel\", () => pm.expect(reading.anomaly_detected).to.eql(true));",
+              "  pm.collectionVariables.set(\"high_reading_id\", String(reading.id));",
+              "  pm.collectionVariables.set(\"alarm_id\", \"\");",
+              "}"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "4. Se domænehændelser",
@@ -114,7 +167,7 @@
       }
     },
     {
-      "name": "5. Se aktive alarmer og vælg første",
+      "name": "5. Find alarmen fra den høje testmåling",
       "request": {
         "method": "GET",
         "header": [],
@@ -126,13 +179,12 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "pm.collectionVariables.set(\"alarm_id\", \"\");",
               "if (pm.response.code === 200) {",
-              "  const alarms = pm.response.json();",
-              "  if (alarms.length > 0) {",
-              "    pm.collectionVariables.set(\"alarm_id\", String(alarms[0].id));",
-              "  } else {",
-              "    pm.collectionVariables.set(\"alarm_id\", \"\");",
-              "  }",
+              "  const readingId = Number(pm.collectionVariables.get(\"high_reading_id\"));",
+              "  const alarm = pm.response.json().find(a => a.reading_id === readingId);",
+              "  if (alarm) pm.collectionVariables.set(\"alarm_id\", String(alarm.id));",
+              "  pm.test(\"Alarm hører til 30 m/s-testen\", () => pm.expect(alarm).to.exist);",
               "}"
             ]
           }
@@ -181,7 +233,7 @@
         "url": "{{base_url}}/readings",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"device_id\": \"WT-01\",\n  \"wind_speed\": -1\n}",
+          "raw": "{\n  \"device_id\": \"VINDMOELLE-02\",\n  \"wind_speed\": -1\n}",
           "options": {
             "raw": {
               "language": "json"

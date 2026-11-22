@@ -23,25 +23,25 @@ def test_seed_atomic_and_repeatable():
     assert len(rows)==579 and rows[0][2]<rows[-1][2]==end
     assert (rows[-1][2]-rows[0][2]).total_seconds()==48*3600
 
-def test_aflevering_pilot_resume_and_events():
-    from scripts.seed_demo_data import aflevering_samples
+def test_vindmoelle_pilot_resume_and_events():
+    from scripts.seed_demo_data import vindmoelle_samples
     from datetime import timedelta
     engine=create_engine('sqlite://')
     Base.metadata.create_all(engine)
     end=datetime(2026,11,22,12,tzinfo=timezone.utc)
-    data=list(aflevering_samples(end))
+    data=list(vindmoelle_samples(end))
     assert len(data)==150
     assert all(end-timedelta(days=7)<at<=end for _,_,at in data)
     assert sum(speed>25 for _,speed,_ in data)==6
     assert all(8<=speed<=24 or 26<=speed<=35 for _,speed,_ in data)
     with Session(engine) as session, session.begin():
-        session.add(Reading(device_id='AFLEVERING-01',wind_speed=20,anomaly_detected=False))
-        assert seed(session,end,'aflevering',4)==(4,1)
+        session.add(Reading(device_id='VINDMOELLE-01',wind_speed=20,anomaly_detected=False))
+        assert seed(session,end,'vindmoelle',4)==(4,1)
     with Session(engine) as session, session.begin():
         # Resume on another day still uses the original timestamps and batch.
-        assert seed(session,end+timedelta(days=1),'aflevering')==(146,5)
+        assert seed(session,end+timedelta(days=1),'vindmoelle')==(146,5)
     with Session(engine) as session, session.begin():
-        assert seed(session,end+timedelta(days=2),'aflevering')==(0,0)
+        assert seed(session,end+timedelta(days=2),'vindmoelle')==(0,0)
         assert session.scalar(select(func.count()).select_from(Reading))==151
         assert session.scalar(select(func.count()).select_from(DomainEvent))==162
         assert session.scalar(select(func.count()).select_from(Alarm))==6

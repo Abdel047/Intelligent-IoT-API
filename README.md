@@ -1,5 +1,9 @@
 # Intelligent IoT API
 
+## Aktuel kvalitetskontrol — 22. november 2026
+
+Navneskiftet til **VINDMOELLE-01/02** er gennemført i MySQL efter godkendelse og en bestået fuld restoreprøve i separat MySQL. Alle oprindelige data, ID’er og relationer er bevaret. **64 tests** samt den delbare Postman-collection via Newman består. 20/30 m/s er kontrolleret i den rigtige API, MySQL og dashboardet, og data er identiske efter Docker-genstart. Se [den aktuelle kontrolrapport](docs/AFLEVERINGSSTATUS.md) for publiceringsstatus og begrænsninger. Ældre statusafsnit og samlede kodeudsnit beskriver tidligere kontroller.
+
 ## Webdashboard — hele overblikket på én side
 
 Åbn **http://localhost:8000/dashboard**. Dashboardet er en del af den eksisterende FastAPI-container, ikke en separat demo. Forsiden `/` og alle eksisterende API-endpoints er bevaret.
@@ -39,7 +43,7 @@ Dashboardets HTML/CSS/JavaScript ligger i `dashboard/`, serverdelen i `dashboard
 
 En anden computer kan klone projektet, generere egen `.env` og køre samme Compose-kommando. Ved push til main tester GitHub Actions løsningen og publicerer derefter det opdaterede image til `ghcr.io/abdel047/intelligent-iot-api:latest`. Se den konkrete kørsel under repositoryets Actions-fane.
 
-Eksisterende tests er bevaret. Nye tests i `tests/test_dashboard.py` dækker login, sessions, rate limiting, CSRF, origin-kontrol, korrekt 20/30-event-flow og kvittering. Seneste lokale kørsel: **51 tests bestået**. Browserkontrol med eksisterende Microsoft Edge har verificeret login, navigation, mobilvisning, liveopdatering, søgning/detaljer, oprettelse af 20/30-målinger og kvittering af den nye testalarm. Der kræves ingen Node/npm-build; browserfilerne serveres direkte og bruger ingen CDN'er.
+Eksisterende tests er bevaret. Nye tests i `tests/test_dashboard.py` dækker login, sessions, rate limiting, CSRF, origin-kontrol, korrekt 20/30-event-flow og kvittering. Seneste lokale kørsel: **64 tests bestået**. Browserkontrol med eksisterende Microsoft Edge har verificeret login, navigation, mobilvisning, liveopdatering, søgning/detaljer, oprettelse af 20/30-målinger og kvittering af den nye testalarm. Der kræves ingen Node/npm-build; browserfilerne serveres direkte og bruger ingen CDN'er.
 
 
 ## Simulerede vindmålinger over tid
@@ -55,24 +59,24 @@ Der findes et valgfrit script med **579 simulerede målinger**, fordelt på tre 
 
 Scriptet anvender din lokale .env og localhost-porten til MySQL. Det opretter ikke database/tabeller, ændrer ikke eksisterende rækker og gemmer hele datasættet i én transaktion. Gentagen kørsel springes over, hvis en SIM-WIND-installation allerede findes. Brug det efter første opstart af API'et. Data er lokale i MySQL-volumet; GitHub og Docker-imaget indeholder kun scriptet, aldrig din database eller dine passwords.
 
-Overblikkets graf starter med AFLEVERING-01 og syv dage, når installationen findes; ellers bruges SIM-WIND-01 eller alle installationer. Vælg en anden installation direkte over grafen. Under Vindmålinger kan installation og periode også vælges. Kurver forbinder kun samme installation, og lange ophold vises som huller (over det største af 90 minutter og tre gange installationens medianinterval). Seneste måling sorteres efter tidspunkt, så historiske demodata ikke forveksles med en nyere måling.
+Efter den godkendte navnemigrering starter overblikkets graf med VINDMOELLE-01 og syv dage, når installationen findes; ellers bruges SIM-WIND-01 eller alle installationer. Vælg en anden installation direkte over grafen. Under Vindmålinger kan installation og periode også vælges. Kurver forbinder kun samme installation, og lange ophold vises som huller (over det største af 90 minutter og tre gange installationens medianinterval). Seneste måling sorteres efter tidspunkt, så historiske demodata ikke forveksles med en nyere måling.
 
-### Ekstra eksamensdata til AFLEVERING-01 og AFLEVERING-02
+### Ekstra eksamensdata til VINDMOELLE-01 og VINDMOELLE-02
 
-Det eksisterende script har også profilen `aflevering`: **150 simulerede målinger** (75 til hver eksisterende installation) over de seneste syv dage. 144 er normale, og seks vindstød over 25 m/s får både AnomalyDetected og AlarmCreated. Alle målinger får SensorValueReceived. Tidspunkter gemmes som UTC, og demomarkøren ligger i hændelsens JSON; ingen nye tabeller eller API-felter er nødvendige.
+Det eksisterende script har også profilen `vindmoelle` (brug den først efter navnemigreringen): **150 simulerede målinger** (75 til hver eksisterende installation) over de seneste syv dage. 144 er normale, og seks vindstød over 25 m/s får både AnomalyDetected og AlarmCreated. Alle målinger får SensorValueReceived. Tidspunkter gemmes som UTC, og demomarkøren ligger i hændelsens JSON; ingen nye tabeller eller API-felter er nødvendige.
 
 ```powershell
 # Vis plan uden at ændre databasen:
-.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile aflevering
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile vindmoelle
 # Pilot: højst fire nye målinger:
-.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile aflevering --limit 4 --apply
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile vindmoelle --limit 4 --apply
 # Tilføj resten (eller hele datasættet, hvis piloten ikke er kørt):
-.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile aflevering --apply
+.\.venv\Scripts\python.exe scripts/seed_demo_data.py --profile vindmoelle --apply
 ```
 
 Eksisterende data bevares. En fast batchmarkør og målingsindeks sikrer, at gentagelser ikke giver dubletter, også når pilot og resten køres på forskellige tidspunkter. En MySQL-lås beskytter mod samtidige scriptkørsler. Scriptet genopfrisker ikke datoerne ved genkørsel; det samme datasæt tilføjes kun én gang.
 
-I dashboardet: **Vindmålinger → Installation: AFLEVERING-01 eller AFLEVERING-02 → 7 dage**. Periodevalget filtrerer både graf og tabel. Eksisterende målinger i perioden bliver også vist. Overblikket viser også installationsvalg, og SIM-WIND-01 kan fortsat vælges. Dine SELECT-forespørgsler med de to AFLEVERING-navne kan fortsat bruges uden ændringer. SQL kan vise UTC-tider, mens dashboardet viser lokal tid.
+I dashboardet: **Vindmålinger → Installation: VINDMOELLE-01 eller VINDMOELLE-02 → 7 dage**. Periodevalget filtrerer både graf og tabel. Eksisterende målinger i perioden bliver også vist. Overblikket viser også installationsvalg, og SIM-WIND-01 kan fortsat vælges. Dine SELECT-forespørgsler med de to VINDMOELLE-navne kan fortsat bruges uden ændringer. SQL kan vise UTC-tider, mens dashboardet viser lokal tid.
 
 ## Kort fortalt — sådan læser du løsningen
 
@@ -411,7 +415,7 @@ Hvis udvidelsen ikke vises endnu, brug **Developer: Reload Window** fra kommando
 Workflowen ligger i `.github/workflows/ci.yml` og gør følgende:
 
 1. Henter koden og installerer Python 3.13 og projektets pakker.
-2. Kører de 40 isolerede pytest-tests.
+2. Kører alle isolerede pytest-tests (senest 64 lokalt).
 3. Genererer nye midlertidige CI-passwords; den bruger ikke din lokale `.env` eller dine rigtige nøgler.
 4. Kontrollerer Compose-konfigurationen og bygger API'ets Docker-image.
 5. Starter API og MySQL på GitHubs midlertidige Linux-maskine og venter på health checks.
@@ -424,7 +428,7 @@ CI bygger og tester i et isoleret miljø. Den nye CD-del leverer efter en godken
 
 ### Næste upload til GitHub
 
-Der er mindst to commits på `main`; MySQL/Docker/CI blev uploadet som `ad444b1`. Den næste upload skal indeholde den nye MySQL/Docker-løsning, workflowen, tests, dokumentation og den delbare Postman-collection. Den skal også indeholde fjernelsen af den gamle database og private collection fra Git-sporing. Dine lokale datafiler bevares.
+Repositoryet er allerede etableret på `main`. Den næste godkendte upload omfatter navnemigrering, tests, opdateret dashboard, Swagger/Postman-eksempler og dokumentation. Databaser og lokale indstillinger skal fortsat holdes uden for Git.
 
 Gennemgå filerne før commit. `.env`, `iot.db`, `iot-dev.db`, `.venv` og private Postman-eksporter må ikke indgå. En push sender de gennemgåede commits til gruppens eksisterende repository og starter workflowen. Push udføres først efter din godkendelse.
 
@@ -471,7 +475,7 @@ Officiel dokumentation: [Caddys lokale HTTPS-certifikater](https://caddyserver.c
 
 HTTPS med valideret certifikat, API-nøglekontrol og POST til MySQL er verificeret fra værtscomputeren. DEMO-LAN-HTTPS blev oprettet som måling 16 med tre events og én alarm. Den lokale deploymentkommando med `-Lan` bestod. Firewallreglen er aktiv på TCP 8443 og den aktuelle private adresse med `LocalSubnet` som afsenderbegrænsning. Adgang via LAN-adressen til port 8000 og 3306 blev afvist som forventet.
 
-Den opdaterede workflow er kontrolleret med actionlint, og de 40 automatiske tests består. Test fra en fysisk anden computer og visning i Workbench er endnu ikke bekræftet. GHCR-publiceringen er nu verificeret på GitHub. Se den korte [afleveringscheckliste](docs/AFLEVERINGSSTATUS.md).
+Den aktuelle kontrolrapport skelner mellem lokale tests, tidligere publicering og de trin, der afventer godkendelse. Se [kontrolrapporten](docs/AFLEVERINGSSTATUS.md). Test fra en fysisk anden computer og en ny Workbench/Postman-demonstration er ikke verificeret i denne gennemgang.
 
 Windows PowerShell kan kræve tilladelse til lokale scripts. Til firewallopsætningen kan følgende køres i et administratorvindue; indstillingen gælder kun denne proces:
 
@@ -501,4 +505,4 @@ For en bestemt verificeret udgave kan `API_IMAGE=ghcr.io/abdel047/intelligent-io
 GitHub Packages er distribution af Docker-images. Den starter ikke automatisk en fælles API-server på internettet.
 
 
-Seneste verificerede publicering: commit `68e04c0`, [grøn CI/CD-kørsel](https://github.com/Abdel047/Intelligent-IoT-API/actions/runs/43013139741). API-imaget ligger på `ghcr.io/abdel047/intelligent-iot-api:latest`. Det lokale GitHub-login kunne ikke læse pakkens adgangsindstillinger (HTTP 403). Gruppens adgang skal derfor kontrolleres under Package settings; repository-invitation alene må ikke antages at give pakkeadgang uden kontrol. Pakken er ikke gjort offentlig af dette arbejde.
+Seneste verificerede publicering før navneændringen: commit `dc08b3d21dcc5e12ea571f3ce81f671828ec6667`, [grøn CI/CD-kørsel](https://github.com/Abdel047/Intelligent-IoT-API/actions/runs/45044650134). Commit-imaget er hentet fra GHCR, og image-labelen kontrolleres mod commit-id. Den nye navneændrings publiceringsstatus står i docs/AFLEVERINGSSTATUS.md. API-imaget ligger på `ghcr.io/abdel047/intelligent-iot-api:latest`. Det lokale GitHub-login kunne ikke læse pakkens adgangsindstillinger (HTTP 403). Gruppens adgang skal derfor kontrolleres under Package settings; repository-invitation alene må ikke antages at give pakkeadgang uden kontrol. Pakken er ikke gjort offentlig af dette arbejde.

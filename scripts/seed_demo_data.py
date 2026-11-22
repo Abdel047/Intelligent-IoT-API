@@ -25,16 +25,16 @@ def samples(end):
             yield device, round(max(0, baseline + variation + gust), 1), at
 
 
-AFLEVERING_DEVICES = ("AFLEVERING-01", "AFLEVERING-02")
-AFLEVERING_BATCH = "aflevering-7d-v1"
+VINDMOELLE_DEVICES = ("VINDMOELLE-01", "VINDMOELLE-02")
+VINDMOELLE_BATCH = "aflevering-7d-v1"  # Permanent batch-ID: beholdes for at undgå dubletter efter navneskift.
 
 
-def aflevering_samples(end):
+def vindmoelle_samples(end):
     """150 simulerede observationer inden for syv dage, heraf seks vindstød."""
     span = timedelta(days=7, minutes=-30)
     for i in range(75):
         at = end - span + span * (i / 74)
-        for offset, device in enumerate(AFLEVERING_DEVICES):
+        for offset, device in enumerate(VINDMOELLE_DEVICES):
             speed = round(16 + offset + 4.3 * math.sin(i / 6 + offset * .4)
                           + 1.3 * math.sin(i / 2.1 + offset), 1)
             if i in ((1, 18, 42, 63) if offset == 0 else (25, 52)):
@@ -45,15 +45,19 @@ def aflevering_samples(end):
 def seed(session, end, profile="standard", limit=None):
     """Caller owns the transaction. A fixed batch and sample index allow safe resume."""
     existing = set()
-    if profile == "aflevering":
+    if profile in ("vindmoelle", "aflevering"):
+        # Brug ikke de nye navne, før den godkendte datamigrering er gennemført.
+        from scripts.rename_devices import NAMES
+        if session.scalar(select(Reading.id).where(Reading.device_id.in_(NAMES)).limit(1)):
+            raise ValueError("Migrér først de eksisterende sensornavne med scripts/rename_devices.py.")
         payloads = session.scalars(select(DomainEvent.payload).where(
-            DomainEvent.device_id.in_(AFLEVERING_DEVICES),
+            DomainEvent.device_id.in_(VINDMOELLE_DEVICES),
             DomainEvent.event_type == "SensorValueReceived"))
         for payload in payloads:
-            if payload.get("demo_batch") == AFLEVERING_BATCH:
+            if payload.get("demo_batch") == VINDMOELLE_BATCH:
                 existing.add(payload["sample_index"])
                 end = datetime.fromisoformat(payload["series_end"])
-        source = aflevering_samples(end)
+        source = vindmoelle_samples(end)
     else:
         if session.scalar(select(Reading.id).where(Reading.device_id.in_(DEVICES)).limit(1)):
             return 0, 0
@@ -64,8 +68,8 @@ def seed(session, end, profile="standard", limit=None):
             continue
         if limit is not None and count >= limit:
             break
-        metadata = ({"demo_batch": AFLEVERING_BATCH, "sample_index": index,
-                     "series_end": end.isoformat()} if profile == "aflevering" else {})
+        metadata = ({"demo_batch": VINDMOELLE_BATCH, "sample_index": index,
+                     "series_end": end.isoformat()} if profile in ("vindmoelle", "aflevering") else {})
         anomalous = speed > 25
         row = Reading(device_id=device, wind_speed=speed, anomaly_detected=anomalous, created_at=at)
         session.add(row)
@@ -88,7 +92,7 @@ def seed(session, end, profile="standard", limit=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Gem de simulerede målinger i den eksisterende MySQL-database")
-    parser.add_argument("--profile", choices=("standard", "aflevering"), default="standard")
+    parser.add_argument("--profile", choices=("standard", "vindmoelle", "aflevering"), default="standard")
     parser.add_argument("--limit", type=int, help="Tilføj højst dette antal nye målinger (pilotkørsel)")
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
@@ -96,7 +100,7 @@ def main():
     end = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     end -= timedelta(minutes=end.minute % 15)
     if not args.apply:
-        print("Forhåndsvisning: " + ("150 simulerede målinger over 7 dage til AFLEVERING-01/02." if args.profile == "aflevering" else "579 simulerede målinger over 48 timer.") + " Brug --apply for at gemme.")
+        print("Forhåndsvisning: " + ("150 simulerede målinger over 7 dage til VINDMOELLE-01/02." if args.profile in ("vindmoelle", "aflevering") else "579 simulerede målinger over 48 timer.") + " Brug --apply for at gemme.")
         return
     values = {}
     for line in (Path(__file__).resolve().parents[1] / ".env").read_text(encoding="utf-8-sig").splitlines():

@@ -15,3 +15,17 @@ ORDER BY id DESC;
 SELECT id, reading_id, device_id, message, status, created_at, acknowledged_at
 FROM alarms
 ORDER BY id DESC;
+
+
+-- Eksamensdemo efter godkendt navnemigrering. Samme eksisterende tabeller.
+SELECT * FROM sensor_readings
+WHERE device_id IN ('VINDMOELLE-01', 'VINDMOELLE-02')
+ORDER BY created_at DESC, id DESC;
+
+SELECT * FROM domain_events
+WHERE device_id IN ('VINDMOELLE-01', 'VINDMOELLE-02')
+ORDER BY created_at DESC, id DESC;
+
+SELECT * FROM alarms
+WHERE device_id IN ('VINDMOELLE-01', 'VINDMOELLE-02')
+ORDER BY created_at DESC, id DESC;

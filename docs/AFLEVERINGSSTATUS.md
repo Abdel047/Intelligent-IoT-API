@@ -1,46 +1,59 @@
-# Afleveringsstatus og sidste kontrol
+# Afleveringsstatus — 22. november 2026
 
-## Verificeret på værtscomputeren
+## Lokal løsning: BESTÅET. Publicering kontrolleres ved den godkendte push.
 
-- REST API, Pydantic-validering og tærskel over 25 m/s.
-- MySQL i separat container med permanent volume.
-- Målinger, SensorValueReceived, AnomalyDetected og AlarmCreated i SQL.
-- Kvittering af alarmer og AlarmAcknowledged (isolerede automatiske tests).
-- API og MySQL overlever genstart med bevarede data.
-- 40 pytest-tests består.
-- CI for commit ad444b1 er grøn på GitHub.
-- SQLTools viser MySQL-tabeller i VS Code.
-- HTTPS-gateway svarer med valideret certifikat på den aktuelle LAN-adresse.
-- HTTPS uden nøgle afvises; POST med nøgle opretter måling, events og alarm.
-- Windows-firewallregel tillader kun LAN-HTTPS-porten fra LocalSubnet.
-- MySQL og ukrypteret API er kun tilgængelige via localhost.
+| Kontrolpunkt | Status | Resultat |
+| --- | --- | --- |
+| Frisk backup og fuld MySQL-restore | BESTÅET | Alle 777 målinger, 843 hændelser og 32 alarmer genskabt i en separat MySQL 8.4-container. Alle felter, relationer, danske tegn og FLOAT32-værdier stemmer. |
+| Navnemigrering i den rigtige database | BESTÅET | 156 målinger, 175 hændelser og 9 alarmer omdøbt; 156 JSON-payloads opdateret. Kun de to godkendte sensorer er ændret. |
+| Bevarelse af oprindelige data | BESTÅET | Alle oprindelige rækker er sammenlignet med backupgrundlaget. ID'er, tider, værdier og relationer er bevaret. SIM-WIND og øvrige installationer er uændrede. |
+| Automatiske tests | BESTÅET | 64 pytest-tests, inklusive rollback, JSON, navnekollision, idempotens, restore-readiness, UTF-8, FLOAT32, alarmregel, API-adgang og dashboard. |
+| Postman-collection → FastAPI | BESTÅET | Den delbare collection kørt med Newman 6.2.1: 9 requests, 5 assertions, 0 fejl. Dette er en automatisk Postman-collection-kørsel, ikke klik i Postman-appen. |
+| Normal måling 20 m/s | BESTÅET | VINDMOELLE-01, reading_id 778: gemt med SensorValueReceived, ingen alarm. |
+| Høj måling 30 m/s | BESTÅET | VINDMOELLE-02, reading_id 779: SensorValueReceived → AnomalyDetected → AlarmCreated. Alarm 33 tilhører målingen. |
+| Alarmkvittering | BESTÅET | Kun den nye testalarm 33 er kvitteret; AlarmAcknowledged oprettet. Ingen gamle alarmer ændret af testen. |
+| MySQL og SELECT-forespørgsler | BESTÅET | Samme reading_id'er, hændelser og alarm fundet direkte i MySQL. docs/inspect_mysql.sql har SELECTs til de nye navne. |
+| Ny grafisk Workbench-kontrol | IKKE VERIFICERET | Data og forbindelsen er verificeret via SQL; Workbench-vinduet er ikke automatisk betjent. Åbn de opdaterede SELECTs under demonstrationen. |
+| Dashboard mod rigtig MySQL | BESTÅET | Login, Online-status, begge vindmøllenavne, graf/perioder, måling 778/779, hændelsesforløb og kvitteret alarm verificeret i Edge. Ingen JavaScript-fejl; mobilbredde kontrolleret. |
+| Docker Compose og lokal build | BESTÅET | Build/start og health checks virker. API og MySQL kommunikerer. Databaseport og lokal API-port bindes kun til localhost. |
+| Persistens ved Docker-genstart | BESTÅET | API og MySQL genstartet normalt. Fingerprint af alle rækker er identisk før/efter. Ingen volumes slettet. |
+| Data efter alle tests | BESTÅET | 779 målinger, 848 hændelser og 33 alarmer: præcis 2 nye målinger, 5 nye events inklusive kvittering og 1 ny alarm. |
+| API-adgang og hemmeligheder | BESTÅET | X-API-Key, dashboard-session og CSRF dækkes af tests. Private Newman-filer er fjernet efter testen; backup/logs ligger uden for Git. Hemmelighedskontrol gennemføres før commit. |
+| Repository og branch | BESTÅET | Abdel047/Intelligent-IoT-API, main. Den lokale usporede .vscode/launch.json holdes uden for commit. |
+| GitHub Actions / GHCR for navneændringen | IKKE VERIFICERET | Afsluttes efter push; rapporten opdateres med faktisk commit og kørsel. |
+| Offentlig deployment / anden fysisk computer | IKKE VERIFICERET | GHCR publicerer et image; det er ikke en offentlig API-server. Lokal løsning er kontrolleret. |
 
-## Mangler en kontrol fra dig
+## Backup og databevarelse
 
-### A. En anden computer eller IoT-enhed
+Frisk anvendt backup uden for repositoryet:
+`C:\Users\Bruger\.codex\backups\Intelligent-IoT-API\before-device-rename-20261122T165644825401Z.sql.gz`
 
-1. Brug samme betroede lokale netværk som værtscomputeren.
-2. Overfør `certs/iot-local-root.crt` til testcomputeren. Det er et offentligt certifikat; del aldrig CA-private nøgler eller hele Docker-volumen.
-3. I Postman: Settings → Certificates → CA Certificates. Tilføj filen, og behold SSL/certifikatkontrol slået til.
-4. Brug HTTPS-adressen fra `scripts/start_lan.ps1`, eksempelvis `https://192.168.205.222:8443/health`. Forvent 200 og database connected.
-5. POST til samme baseadresse plus `/readings`. Brug `X-API-Key` og body `{"device_id":"DEMO-ANDEN-PC","wind_speed":30}`. Nøglen gives privat til demonstratøren.
-6. Kontrollér den nye måling og alarm i SQLTools/Workbench på værtscomputeren.
+SHA256: `d015b8594097dbec9e0c7e80c40b91c1e6ed1e698829d6664eeaf4e3600a228b`.
 
-Gem et billede af svaret uden at vise API-nøglen. Hvis enhederne ikke kan nå hinanden, kan Wi-Fi-netværket have klientisolering. Prøv et betroet privat netværk; åbn ikke routerporte som løsning.
+Samme mappe indeholder restore-log og migrationskvittering. Backupen er faktisk importeret i en separat MySQL-container før navnemigreringen. Testcontaineren brugte midlertidig lagring uden eksisterende volumes og uden publicerede porte; kun denne testcontainer blev fjernet bagefter.
 
-### B. MySQL Workbench
+Navnene blev ændret fra AFLEVERING-01/02 til VINDMOELLE-01/02 i én transaktion. Alle rækker blev efterkontrolleret mod den forventede transformation inden COMMIT. Gamle navne findes fortsat i selve migrationsmappingen og testfixtures, fordi de skal kunne migrere og teste den gamle version. De vises ikke længere som sensornavne i den eksisterende database eller de aktuelle eksempler.
 
-Programmet er installeret, men selve Workbench-visningen er endnu ikke dokumenteret. SQLTools virker allerede.
+Den faste simulationsmarkør `aflevering-7d-v1` bevares som historisk batch-ID for at undgå dubletter. Det er ikke et sensornavn. SIM-WIND-01/02/03 bevares som separate historiske, simulerede installationer.
 
-1. Klik + ved Database Connections.
-2. Caption: Intelligent IoT lokal; Connection Method: mysql.
-3. User Name: iot_user; Host: 127.0.0.1; Port: 3306; Default Schema: intelligent_iot. Brug .env-værdierne, hvis du har ændret standarderne.
-4. Klik Test Connection, og indsæt kun værdien efter MYSQL_PASSWORD= i passwordfeltet. Det aktuelle password ligger i .env; brug ikke et tidligere delt password.
-5. Gem og åbn forbindelsen. Kør forespørgslerne fra docs/inspect_mysql.sql.
-6. Vis resultaterne for sensor_readings, domain_events og alarms. Tag et billede uden passwords.
+## Forklaring på den rettede restorefejl
 
-## CD og upload
+Den gamle test brugte mysqladmin ping som klarsignal. Den kommando returnerede 0, selv om root-login endnu ikke var klar, og SQL-importen fik ERROR 1045: Access denied. Containerloggen og den gentagne fejl er gemt lokalt. Testen venter nu på et autentificeret SELECT 1 over TCP i den forventede database.
 
-Den nye workflow leverer automatisk et image til GHCR efter bestået CI på main. Dette er Continuous Delivery. Denne del er uploadet og verificeret i den grønne CI/CD-kørsel for commit 68e04c0. Lokal deployment med scripts/deploy_local.ps1 -Lan er verificeret. Automatisk deployment til et permanent miljø er ikke implementeret; hvis underviseren kræver dette, skal driftsmål afklares.
+Verifikationen bruger desuden eksplicit utf8mb4, så danske alarmtekster kan læses, og præcis sammenligning af lagrede FLOAT32-bits. MySQL JSON_OBJECT kan vise flere decimaler end PyMySQL, selv når de lagrede bits er identiske. Ingen databaseværdier blev afrundet eller ændret for at få testen til at bestå.
 
-LAN/CD-ændringerne er uploadet efter godkendelse. Fremtidige uploads kræver godkendelse. Den må ikke omfatte .env, certifikatmapper, sessionfiler eller lokale databaser. Den gamle nøgle i historikken er tidligere udskiftet; gamle commits er ikke omskrevet.
+## Øvrige rettelser og begrænsninger
+
+- Postman vælger alarmen via den returnerede 30 m/s-målings reading_id frem for den første gamle alarm. Gamle testvariabler nulstilles før en ny høj måling.
+- Dashboardets API-kort skifter også til Offline ved forbindelsestab og tilbage til Online ved genetablering.
+- Swagger, dashboard, simulationsscript, Postman-eksempler, tests, README og relevante SQL/dokumenter bruger de nye sensornavne.
+- Perioden 7 dage er rullende: gamle punkter falder naturligt ud. Vælg Alle for hele historikken.
+- Én ikke-blokerende deprecation-advarsel om httpx i testklienten består; der er ikke ændret afhængigheder blot for at skjule den.
+- Dashboardet er regelbaseret overvågning med simulerede data, ikke en AI-model der forudsiger maskinfejl.
+- Gruppemedlemmers individuelle GitHub/GHCR-adgang og LAN-adgang er ikke nytestet.
+
+## Klar til video
+
+Den lokale løsning er klar til en cirka fem minutter lang demo med Docker → Postman 20/30 → MySQL SELECT → dashboard → GitHub Actions. Vis ikke .env, passwords eller API-nøgler. Workbench og Postman kan åbnes før optagelsen; indsæt adgangsoplysninger privat.
+
+Ny publicering er først bekræftet, når den konkrete Actions-kørsel og GHCR-imagets commit-label er kontrolleret. Se status i tabellen ovenfor.

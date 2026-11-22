@@ -71,7 +71,7 @@ async function refresh(force=false){
   $("lastUpdated").textContent="Opdateret "+new Date().toLocaleTimeString("da-DK");$("sideThreshold").textContent=body.threshold;$("legendThreshold").textContent=body.threshold;
   $("navAlarmCount").textContent=body.database_status==="connected"?body.alarms.filter(a=>a.status==="active").length:"—";
   renderView();
- }catch(e){if(state.csrf){$("connectionError").hidden=false;$("connectionError").textContent="Forbindelsen er afbrudt. Eventuelt viste data er fra sidste opdatering. "+e.message;$("liveBadge").className="badge bad";$("liveBadge").textContent="● Offline";}}
+ }catch(e){if(state.csrf){$("connectionError").hidden=false;$("connectionError").textContent="Forbindelsen er afbrudt. Eventuelt viste data er fra sidste opdatering. "+e.message;$("liveBadge").className="badge bad";$("liveBadge").textContent="● Offline";const card=document.querySelector("#kpis .kpi-value");if(card){card.textContent="Offline";card.className="kpi-value wind-high";}}}
  finally{$("refreshButton").disabled=false;}})();
  $("refreshButton").disabled=true;await refreshing;refreshing=null;
 }
@@ -80,7 +80,7 @@ function latestFirst(rows){return [...rows].sort((a,b)=>Date.parse(b.created_at)
 function renderView(){if(!state.data)return;({overview:renderOverview,readings:renderReadings,alarms:renderAlarms,database:renderDatabase,flow:renderFlow,test:()=>{}})[state.view]();}
 function renderOverview(){
  const devices=[...new Set(state.data.readings.map(r=>r.device_id))].sort();
- if(state.overviewDevice===null)state.overviewDevice=devices.includes("AFLEVERING-01")?"AFLEVERING-01":devices.includes("SIM-WIND-01")?"SIM-WIND-01":"all";
+ if(state.overviewDevice===null)state.overviewDevice=devices.includes("VINDMOELLE-01")?"VINDMOELLE-01":devices.includes("SIM-WIND-01")?"SIM-WIND-01":"all";
  const select=$("overviewDevice");
  const options='<option value="all">Alle installationer</option>'+devices.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");
  if(select.innerHTML!==options)select.innerHTML=options;

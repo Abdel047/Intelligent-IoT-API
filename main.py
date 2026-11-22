@@ -29,8 +29,8 @@ def require_api_key(request: Request, supplied: str | None = Depends(api_key_hea
 
 
 class SensorReading(BaseModel):
-    device_id: str = Field(min_length=1, max_length=100, pattern=r".*\S.*")
-    wind_speed: float = Field(ge=0, le=80, allow_inf_nan=False)
+    device_id: str = Field(min_length=1, max_length=100, pattern=r".*\S.*", examples=["VINDMOELLE-01", "VINDMOELLE-02"])
+    wind_speed: float = Field(ge=0, le=80, allow_inf_nan=False, examples=[20, 30])
 
 
 class TimestampOutput(BaseModel):

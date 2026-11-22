@@ -1,3 +1,5 @@
+> Historisk samlet vejledning med kodeudsnit fra tidligere versioner. Brug de aktuelle projektfiler og README til den gældende kode og kvalitetsstatus. Sensornavnene i eksemplerne er opdateret; dette dokument er ikke dokumentation for en ny publicering.
+
 # Samlet vejledning — Intelligent IoT API
 
 Dette er din samlede læse- og afleveringsvejledning. Del 1–8 forklarer projektet og videoen. Del 9 samler de faktiske kildefiler med forklaringer. Du skal ikke kopiere hele dokumentet tilbage i projektet eller oprette løsningen igen.
@@ -229,13 +231,13 @@ URL: http://127.0.0.1:8000/readings. API-nøglen skal være indstillet privat f�
 Normal:
 
 ```json
-{"device_id":"AFLEVERING-01","wind_speed":20}
+{"device_id":"VINDMOELLE-01","wind_speed":20}
 ```
 
 Alarm:
 
 ```json
-{"device_id":"AFLEVERING-02","wind_speed":30}
+{"device_id":"VINDMOELLE-02","wind_speed":30}
 ```
 
 Hvert Send opretter nye rækker. Id'er vil variere. Slet ikke tidligere data for at opnå bestemte numre.
