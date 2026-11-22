@@ -1,6 +1,6 @@
 # Afleveringsstatus — 22. november 2026
 
-## Lokal løsning: BESTÅET. Publicering kontrolleres ved den godkendte push.
+## Samlet status: BESTÅET for den lokale eksamens-MVP
 
 | Kontrolpunkt | Status | Resultat |
 | --- | --- | --- |
@@ -18,9 +18,9 @@
 | Docker Compose og lokal build | BESTÅET | Build/start og health checks virker. API og MySQL kommunikerer. Databaseport og lokal API-port bindes kun til localhost. |
 | Persistens ved Docker-genstart | BESTÅET | API og MySQL genstartet normalt. Fingerprint af alle rækker er identisk før/efter. Ingen volumes slettet. |
 | Data efter alle tests | BESTÅET | 779 målinger, 848 hændelser og 33 alarmer: præcis 2 nye målinger, 5 nye events inklusive kvittering og 1 ny alarm. |
-| API-adgang og hemmeligheder | BESTÅET | X-API-Key, dashboard-session og CSRF dækkes af tests. Private Newman-filer er fjernet efter testen; backup/logs ligger uden for Git. Hemmelighedskontrol gennemføres før commit. |
+| API-adgang og hemmeligheder | BESTÅET | X-API-Key, dashboard-session og CSRF dækkes af tests. Private Newman-filer er fjernet efter testen; backup/logs ligger uden for Git. Hemmelighedskontrol før commit er bestået. |
 | Repository og branch | BESTÅET | Abdel047/Intelligent-IoT-API, main. Den lokale usporede .vscode/launch.json holdes uden for commit. |
-| GitHub Actions / GHCR for navneændringen | IKKE VERIFICERET | Afsluttes efter push; rapporten opdateres med faktisk commit og kørsel. |
+| GitHub Actions / GHCR for navneændringen | BESTÅET | Test/build, MySQL-integration, genstart og CD er grønne. Commit-tag, latest og revision-label er kontrolleret. Se publiceringen nedenfor. |
 | Offentlig deployment / anden fysisk computer | IKKE VERIFICERET | GHCR publicerer et image; det er ikke en offentlig API-server. Lokal løsning er kontrolleret. |
 
 ## Backup og databevarelse
@@ -56,4 +56,13 @@ Verifikationen bruger desuden eksplicit utf8mb4, så danske alarmtekster kan læ
 
 Den lokale løsning er klar til en cirka fem minutter lang demo med Docker → Postman 20/30 → MySQL SELECT → dashboard → GitHub Actions. Vis ikke .env, passwords eller API-nøgler. Workbench og Postman kan åbnes før optagelsen; indsæt adgangsoplysninger privat.
 
-Ny publicering er først bekræftet, når den konkrete Actions-kørsel og GHCR-imagets commit-label er kontrolleret. Se status i tabellen ovenfor.
+## Verificeret funktionel publicering
+
+- Funktionelt release-commit: `a5576f35a22ce7b216a24044fbf13a940cfee812`.
+- Grøn GitHub Actions-kørsel: [45047181205](https://github.com/Abdel047/Intelligent-IoT-API/actions/runs/45047181205). Begge jobs er completed/success.
+- Image: `ghcr.io/abdel047/intelligent-iot-api:a5576f35a22ce7b216a24044fbf13a940cfee812`.
+- SHA-tag og latest havde identiske manifests ved kontrollen. Imagets org.opencontainers.image.revision matcher præcist release-commit.
+- Alle syv runtime-/afhængighedsfiler er sammenlignet mellem kildekoden, den kørende lokale API-container og det hentede GHCR-image; de matcher med normaliserede linjeskift.
+- Rapporten afsluttes i et separat dokumentationscommit uden ændringer i runtime-koden. Hvert push på main testes og publiceres af samme workflow; den nyeste leverings konkrete SHA fremgår af repositoryets Actions og imagets revision-label. Et senere dokumentationscommit ændrer ikke ovenstående funktionelle release eller datamigreringen.
+- GHCR er distribution af Docker-images, ikke deployment til en offentlig server.
+
